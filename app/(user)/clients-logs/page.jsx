@@ -2,7 +2,7 @@ import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
 
 import UserNavbar from "../components/UserNavbar";
-import MainDashboard from "../../components/MainDashboard";
+import ClientsLogs from "../components/ClientsLogs";
 
 export default async function AdminDashboard() {
   const supabase = await createServerSupabase();
@@ -26,7 +26,7 @@ export default async function AdminDashboard() {
       {/* sidebar */}
       <UserNavbar />
       {/* main */}
-      <MainDashboard />
+      <ClientsLogs />
     </main>
   );
 }

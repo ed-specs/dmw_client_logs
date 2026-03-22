@@ -1,5 +1,6 @@
 import "./globals.css";
 import { inter } from "./components/fonts";
+import AutoLogout from "./components/AutoLogout";
 
 export const metadata = {
   title: "DMW Client Logs",
@@ -12,6 +13,7 @@ export default function RootLayout({ children }) {
       <body
         className={`${inter.className} antialiased`}
       >
+        <AutoLogout />
         {children}
       </body>
     </html>

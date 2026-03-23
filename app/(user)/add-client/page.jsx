@@ -2,9 +2,9 @@ import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
 
 import UserNavbar from "../components/UserNavbar";
-import ClientsLogs from "../components/ClientsLogs";
+import AddClient from "../components/AddClient";
 
-export default async function ClientsLogsPage() {
+export default async function AddClientPage() {
   const supabase = await createServerSupabase();
   const {
     data: { user },
@@ -26,7 +26,7 @@ export default async function ClientsLogsPage() {
       {/* sidebar */}
       <UserNavbar />
       {/* main */}
-      <ClientsLogs />
+      <AddClient />
     </main>
   );
 }

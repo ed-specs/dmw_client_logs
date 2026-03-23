@@ -31,10 +31,10 @@ export default function LoginPage() {
       return;
     }
 
-    // User is authenticated – fetch their profile to get role
+    // User is authenticated – fetch their profile to get role and status
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, status")
       .eq("id", data.user.id)
       .single();
 
@@ -42,6 +42,12 @@ export default function LoginPage() {
       // If no profile found, maybe redirect to a default page or show error
       setError("User profile not found. Please contact admin.");
       setLoading(false);
+      return;
+    }
+
+    // Redirect based on status first
+    if (profile.status === "pending") {
+      router.push("/change-password");
       return;
     }
 

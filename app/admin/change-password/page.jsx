@@ -1,13 +1,12 @@
 import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
 import AdminNavbar from "../components/AdminNavbar";
-import AdminManageEmployees from "../components/AdminManageEmployees";
+import AdminChangePassword from "../components/AdmingChangePassword";
 
-export default async function AdminDashboard() {
+export default async function AdminChagePasswordPage() {
   const supabase = await createServerSupabase();
   const {
     data: { user },
@@ -24,19 +23,7 @@ export default async function AdminDashboard() {
     .eq("id", user.id)
     .single();
 
-  // Initialize Admin Client to bypass RLS "View Own Profile" restrictions
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
-  // Fetch all employees for table
-  const { data: employees } = await supabaseAdmin
-    .from("profiles")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  console.log("AdminDashboard Check:", {
+  console.log("AdminChangePasswordPage Check:", {
     user_id: user?.id,
     profile,
     error,
@@ -54,7 +41,7 @@ export default async function AdminDashboard() {
       {/* sidebar */}
       <AdminNavbar />
       {/* main */}
-      <AdminManageEmployees initialData={employees || []} />
+      <AdminChangePassword />
     </main>
   );
 }

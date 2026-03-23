@@ -10,6 +10,7 @@ import {
   Briefcase,
   FileText,
   ChevronDown,
+  ArrowUpDown,
 } from "lucide-react";
 
 const JOBSITE = [
@@ -143,11 +144,15 @@ const FILTER_OPTIONS = [
 
 export default function ClientDataTable({ data = [] }) {
   const [toggleFilter, setToggleFilter] = useState(false);
+  const [toggleSort, setToggleSort] = useState(false);
+  const [sortOrder, setSortOrder] = useState("default"); // 'default' | 'newest' | 'oldest'
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilters, setSelectedFilters] = useState({
     date: [],
     jobsite: [],
+    type: [],
     position: [],
     purpose: [],
     address: [],
@@ -170,14 +175,45 @@ export default function ClientDataTable({ data = [] }) {
     });
   };
 
-  const totalClients = data.length;
+  const filteredData = data.filter((log) => {
+    // 1. Search Query (startsWith for literal exact-prefix matching)
+    const matchesSearch =
+      searchQuery === "" ||
+      log.clientName?.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
+      log.nameOfOfw?.toLowerCase().startsWith(searchQuery.toLowerCase());
+
+    // 2. Exact Value Filters
+    const matchesDate = selectedFilters.date?.length === 0 || !selectedFilters.date ? true : selectedFilters.date.includes(log.date);
+    const matchesJobsite = selectedFilters.jobsite?.length === 0 || !selectedFilters.jobsite ? true : selectedFilters.jobsite.includes(log.jobsite);
+    const matchesType = selectedFilters.type?.length === 0 || !selectedFilters.type ? true : selectedFilters.type.includes(log.type);
+    const matchesPosition = selectedFilters.position?.length === 0 || !selectedFilters.position ? true : selectedFilters.position.includes(log.position);
+    const matchesPurpose = selectedFilters.purpose?.length === 0 || !selectedFilters.purpose ? true : selectedFilters.purpose.includes(log.purpose);
+    const matchesAddress = selectedFilters.address?.length === 0 || !selectedFilters.address ? true : selectedFilters.address.includes(log.address);
+
+    return matchesSearch && matchesDate && matchesJobsite && matchesType && matchesPosition && matchesPurpose && matchesAddress;
+  });
+
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (sortOrder === "default") return 0;
+    
+    const dateA = new Date(a.date || 0).getTime();
+    const dateB = new Date(b.date || 0).getTime();
+    
+    if (sortOrder === "newest") {
+      return dateB - dateA;
+    } else {
+      return dateA - dateB;
+    }
+  });
+
+  const totalClients = sortedData.length;
   const hasRecords = totalClients > 0;
 
   // Pagination logic
   const ITEMS_PER_PAGE = 20;
   const totalPages = Math.ceil(totalClients / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const currentLogs = data.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const currentLogs = sortedData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
     <div className="flex flex-col gap-2 flex-1">
@@ -189,14 +225,59 @@ export default function ClientDataTable({ data = [] }) {
             type="text"
             name="search"
             id="search"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Search client here..."
             className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 w-96"
           />
-          <div className="flex items-center">
+          <div className="flex items-center gap-2 relative">
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setToggleSort(!toggleSort);
+                  setToggleFilter(false); // close filter if sort is opened
+                }}
+                className="px-4 py-2 border text-sm border-gray-300 bg-white rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150 shadow-sm"
+              >
+                <ArrowUpDown strokeWidth={1.5} className="w-4 h-4" />
+                Sort by
+                <ChevronDown strokeWidth={1.5} className={`w-4 h-4 transition-transform duration-200 ${toggleSort ? "rotate-180" : ""}`} />
+              </button>
+              
+              {toggleSort && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-30 flex flex-col py-1 overflow-hidden">
+                  <button
+                    onClick={() => { setSortOrder("default"); setToggleSort(false); setCurrentPage(1); }}
+                    className={`px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${sortOrder === "default" ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}
+                  >
+                    Default
+                  </button>
+                  <button
+                    onClick={() => { setSortOrder("newest"); setToggleSort(false); setCurrentPage(1); }}
+                    className={`px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${sortOrder === "newest" ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}
+                  >
+                    Newest to Oldest
+                  </button>
+                  <button
+                    onClick={() => { setSortOrder("oldest"); setToggleSort(false); setCurrentPage(1); }}
+                    className={`px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${sortOrder === "oldest" ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}
+                  >
+                    Oldest to Newest
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* insert filter by date / address / country / position / purpose */}
             <button
-              onClick={() => setToggleFilter(!toggleFilter)}
-              className="px-4 py-2 border text-sm border-gray-300 bg-white rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150"
+              onClick={() => {
+                setToggleFilter(!toggleFilter);
+                setToggleSort(false);
+              }}
+              className="px-4 py-2 border text-sm border-gray-300 bg-white rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150 shadow-sm"
             >
               {toggleFilter ? (
                 <X strokeWidth={1.5} className="w-4 h-4" />

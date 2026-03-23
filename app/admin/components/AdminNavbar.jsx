@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "../../lib/supabaseClient"; // adjust path if needed
 import {
   LayoutDashboard,
-  History,
+  BookOpenText,
   KeyRound,
   IdCardLanyard,
   LogOut,
@@ -17,14 +17,22 @@ const MENU_SECTIONS = [
     title: "Menus",
     items: [
       { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-      { name: "History Logs", href: "/admin/history-logs", icon: History },
+      { name: "Client Logs", href: "/admin/clients-logs", icon: BookOpenText },
     ],
   },
   {
     title: "Admin Settings",
     items: [
-      { name: "Manage Employees", href: "/admin/manage-employees", icon: IdCardLanyard },
-      { name: "Change Password", href: "/admin/change-password", icon: KeyRound },
+      {
+        name: "Manage Employees",
+        href: "/admin/manage-employees",
+        icon: IdCardLanyard,
+      },
+      {
+        name: "Change Password",
+        href: "/admin/change-password",
+        icon: KeyRound,
+      },
     ],
   },
 ];

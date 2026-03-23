@@ -120,3 +120,39 @@ export async function activateEmployeeStatus(userId) {
     return { success: false, error: err.message };
   }
 }
+
+export async function updateEmployee(formData, employeeId) {
+  try {
+    const name = formData.get("name");
+    const role = formData.get("role");
+
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ name, role: role.toUpperCase() })
+      .eq("id", employeeId);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deleteEmployee(employeeId) {
+  try {
+    // Delete from Auth (this also revokes their login access immediately)
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(employeeId);
+    if (authError) return { success: false, error: authError.message };
+
+    // Explicitly delete from profiles if no cascade delete is configured
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .delete()
+      .eq("id", employeeId);
+
+    if (profileError) return { success: false, error: profileError.message };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}

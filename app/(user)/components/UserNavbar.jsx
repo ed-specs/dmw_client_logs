@@ -26,7 +26,7 @@ const MENU_SECTIONS = [
     title: "Settings",
     items: [
       // { name: "Manage Employees", href: "/manage-employees", icon: IdCardLanyard },
-      { name: "Change Password", href: "/change-password", icon: KeyRound },
+      { name: "Change Password", href: "/password", icon: KeyRound },
     ],
   },
 ];

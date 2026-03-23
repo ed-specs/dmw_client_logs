@@ -88,13 +88,15 @@ const ADDRESS = [
   "NAUJAN, ORIENTAL MINDORO",
 ];
 
+const TYPE = ["LB", "SB"];
+
 const FILTER_OPTIONS = [
   {
     id: "date",
     label: "Date",
     placeholder: "Select date",
     icon: CalendarRange,
-    colClass: "col-span-1",
+    colClass: "col-span-2",
     options: null,
   },
   {
@@ -102,15 +104,23 @@ const FILTER_OPTIONS = [
     label: "Jobsite",
     placeholder: "Select Jobsite",
     icon: Earth,
-    colClass: "col-span-1",
+    colClass: "col-span-2",
     options: JOBSITE,
+  },
+  {
+    id: "type",
+    label: "Type",
+    placeholder: "Select Type",
+    icon: Earth,
+    colClass: "col-span-2",
+    options: TYPE,
   },
   {
     id: "position",
     label: "Position",
     placeholder: "Select Position",
     icon: Briefcase,
-    colClass: "col-span-1",
+    colClass: "col-span-2",
     options: POSITION,
   },
   {
@@ -118,7 +128,7 @@ const FILTER_OPTIONS = [
     label: "Purpose",
     placeholder: "Select Purpose",
     icon: FileText,
-    colClass: "col-span-1",
+    colClass: "col-span-2",
     options: PURPOSE,
   },
   {
@@ -126,7 +136,7 @@ const FILTER_OPTIONS = [
     label: "Address",
     placeholder: "Select address",
     icon: MapPinHouse,
-    colClass: "col-span-1",
+    colClass: "col-span-2",
     options: ADDRESS,
   },
 ];
@@ -180,13 +190,13 @@ export default function ClientDataTable({ data = [] }) {
             name="search"
             id="search"
             placeholder="Search client here..."
-            className="px-4 py-2 rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 w-96"
+            className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 w-96"
           />
           <div className="flex items-center">
             {/* insert filter by date / address / country / position / purpose */}
             <button
               onClick={() => setToggleFilter(!toggleFilter)}
-              className="px-4 py-2 border border-gray-300 bg-white rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150"
+              className="px-4 py-2 border text-sm border-gray-300 bg-white rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150"
             >
               {toggleFilter ? (
                 <X strokeWidth={1.5} className="w-4 h-4" />
@@ -200,7 +210,7 @@ export default function ClientDataTable({ data = [] }) {
         {/* toggle filter */}
         {toggleFilter && (
           // insert filter by date / address / country / position / purpose
-          <div className="rounded-lg bg-white border border-gray-300 p-4 grid grid-cols-5 gap-3">
+          <div className="rounded-lg bg-white border border-gray-300 p-4 grid grid-cols-6 gap-3 z-20">
             {FILTER_OPTIONS.map((filter) => {
               const Icon = filter.icon;
               return (
@@ -293,40 +303,43 @@ export default function ClientDataTable({ data = [] }) {
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 border-b border-gray-300  text-gray-700 sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200 text-center w-12">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200 text-center w-12">
                   NO.
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   DATE
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   CLIENT NAME
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200 text-center">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200 text-center">
                   AGE
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200 text-center">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200 text-center">
                   SEX
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   ADDRESS
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   CONTACT NO.
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   NAME OF OFW
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   JOBSITE
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
+                  TYPE
+                </th>
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   POSITION
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider border-r border-gray-200">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   PURPOSE
                 </th>
-                <th className="px-4 py-2 text-xs font-semibold tracking-wider text-center">
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider text-center">
                   SURVEY
                 </th>
               </tr>
@@ -338,43 +351,46 @@ export default function ClientDataTable({ data = [] }) {
                     key={log.id}
                     className="hover:bg-blue-50/50 transition-colors duration-200 border-b border-gray-100"
                   >
-                    <td className="px-4 py-2 text-xs text-gray-500 border-r border-gray-200 text-center">
+                    <td className="px-2 py-2.5 text-xs text-gray-500 border-r border-gray-200 text-center">
                       {startIndex + index + 1}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-700 border-r border-gray-200 font-medium whitespace-nowrap">
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium whitespace-nowrap">
                       {log.date}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-900 border-r border-gray-200 font-semibold whitespace-nowrap">
+                    <td className="px-2 py-2.5 text-xs text-gray-900 border-r border-gray-200 font-semibold whitespace-nowrap">
                       {log.clientName}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-700 border-r border-gray-200 text-center">
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 text-center">
                       {log.age}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-700 border-r border-gray-200 text-center">
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 text-center">
                       {log.sex}
                     </td>
                     <td
-                      className="px-4 py-2 text-xs text-gray-700 border-r border-gray-200 max-w-xs truncate"
+                      className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 max-w-xs truncate"
                       title={log.address}
                     >
                       {log.address}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-700 border-r border-gray-200 font-medium">
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium">
                       {log.contactNo}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-700 border-r border-gray-200">
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
                       {log.nameOfOfw}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-700 border-r border-gray-200 font-medium">
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium">
                       {log.jobsite}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-700 border-r border-gray-200">
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
+                      {log.type}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
                       {log.position}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-700 border-r border-gray-200">
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
                       {log.purpose}
                     </td>
-                    <td className="px-4 py-2 text-xs text-center align-middle">
+                    <td className="px-2 py-2.5 text-xs text-center align-middle">
                       {log.survey}
                     </td>
                   </tr>

@@ -1,10 +1,10 @@
 import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 import AdminNavbar from "../components/AdminNavbar";
-import MainDashboard from "../../components/MainDashboard";
+import AdminManageEmployees from "../components/AdminManageEmployees";
 
 export default async function AdminDashboard() {
   const supabase = await createServerSupabase();
@@ -23,7 +23,11 @@ export default async function AdminDashboard() {
     .eq("id", user.id)
     .single();
 
-  console.log("AdminDashboard Check:", { user_id: user?.id, profile, error });
+  console.log("AdminDashboard Check:", {
+    user_id: user?.id,
+    profile,
+    error,
+  });
 
   // If profile is missing or role is not admin → send to normal dashboard
   if (!profile || profile.role !== "admin") {
@@ -37,7 +41,7 @@ export default async function AdminDashboard() {
       {/* sidebar */}
       <AdminNavbar />
       {/* main */}
-      <MainDashboard />
+      <AdminManageEmployees />
     </main>
   );
 }

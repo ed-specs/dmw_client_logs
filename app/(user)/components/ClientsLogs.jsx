@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import ClientDataTable from "./ClientsLogs/ClientDataTable";
 
 import { BookOpenText } from "lucide-react";
@@ -14,6 +15,7 @@ const DUMMY_LOGS = [
     contactNo: "09162561433",
     nameOfOfw: "EDWARD C. GATBONTON",
     jobsite: "QATAR",
+    type: "LB",
     position: "CAREGIVER",
     purpose: "OEC",
     survey: "GOOD",
@@ -28,6 +30,7 @@ const DUMMY_LOGS = [
     contactNo: "09123456789",
     nameOfOfw: "MARIA CLARA SANTOS",
     jobsite: "JAPAN",
+    type: "LB",
     position: "DOMESTIC HELPER",
     purpose: "OEC",
     survey: "GOOD",
@@ -42,6 +45,7 @@ const DUMMY_LOGS = [
     contactNo: "09987654321",
     nameOfOfw: "JUAN DELA CRUZ",
     jobsite: "SAUDI ARABIA",
+    type: "LB",
     position: "ELECTRICIAN",
     purpose: "FINANCIAL ASSISTANCE",
     survey: "GOOD",
@@ -56,14 +60,17 @@ export default function ClientsLogs() {
   ).length;
 
   return (
-    <div className="flex flex-col flex-1 gap-6 p-6 bg-gray-50">
+    <div className="flex flex-col flex-1 gap-4 p-6 bg-gray-50">
       {/* header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">ORIENTAL MINDORO</h1>
-        <button className="rounded-lg px-4 py-2 bg-blue-500 text-white flex items-center gap-2">
+        <Link
+          href="/add-client"
+          className="rounded-lg px-4 py-2 bg-blue-500 hover:bg-blue-600 transition-colors duration-150 cursor-pointer text-white flex items-center gap-2"
+        >
           <BookOpenText strokeWidth={1.5} className="w-5 h-5" />
           Add Client Log
-        </button>
+        </Link>
       </div>
       {/* main */}
       <div className="flex flex-1 gap-6">

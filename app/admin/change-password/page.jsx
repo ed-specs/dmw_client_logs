@@ -30,7 +30,7 @@ export default async function AdminChagePasswordPage() {
   });
 
   // If profile is missing or role is not admin → send to normal dashboard
-  if (!profile || profile.role !== "admin") {
+  if (!profile || profile.role !== "ADMIN") {
     console.log("Redirecting to /dashboard because profile is not admin");
     redirect("/dashboard"); // or "/login" if you prefer
     return null; // Prevents Admin settings from erroneously rendering if redirect throws incorrectly

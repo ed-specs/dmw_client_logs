@@ -1,7 +1,7 @@
 import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 import AdminNavbar from "../components/AdminNavbar";
 import MainDashboard from "../../components/MainDashboard";
@@ -26,7 +26,7 @@ export default async function AdminDashboard() {
   console.log("AdminDashboard Check:", { user_id: user?.id, profile, error });
 
   // If profile is missing or role is not admin → send to normal dashboard
-  if (!profile || profile.role !== "admin") {
+  if (!profile || profile.role !== "ADMIN") {
     console.log("Redirecting to /dashboard because profile is not admin");
     redirect("/dashboard"); // or "/login" if you prefer
     return null; // Prevents Admin settings from erroneously rendering if redirect throws incorrectly

@@ -21,12 +21,20 @@ export default async function ClientsLogsPage() {
     .eq("id", user.id)
     .single();
 
+  const userRole = profile?.role || "UNKNOWN";
+
+  const { data: clientLogs } = await supabase
+    .from("client_logs")
+    .select("*")
+    .eq("province", userRole)
+    .order("date", { ascending: false });
+
   return (
     <main className="flex h-dvh ">
       {/* sidebar */}
       <UserNavbar />
       {/* main */}
-      <ClientsLogs />
+      <ClientsLogs initialData={clientLogs || []} userRole={userRole} />
     </main>
   );
 }

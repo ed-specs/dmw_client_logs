@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
 import {
-  ListFilter,
   X,
+  ListFilter,
+  ArrowUpDown,
   CalendarRange,
   MapPinHouse,
   Earth,
   Briefcase,
-  FileText,
+  ChevronLeft,
   ChevronDown,
-  ArrowUpDown,
+  FileText,
 } from "lucide-react";
+
+import { useState } from "react";
+
+import { ProvincePlaces } from "../../../data/ProvincePlaces";
 
 const JOBSITE = [
   "U.A.E",
@@ -82,13 +86,6 @@ const PURPOSE = [
   "LEGAL ASSISTANCE",
 ];
 
-const ADDRESS = [
-  "VICTORIA, ORIENTAL MINDORO",
-  "BACO, ORIENTAL MINDORO",
-  "CALAPAN, ORIENTAL MINDORO",
-  "NAUJAN, ORIENTAL MINDORO",
-];
-
 const TYPE = ["LB", "SB"];
 
 const FILTER_OPTIONS = [
@@ -128,7 +125,7 @@ const FILTER_OPTIONS = [
     id: "purpose",
     label: "Purpose",
     placeholder: "Select Purpose",
-    icon: FileText,
+    icon: Briefcase, // Changed from FileText as per import change
     colClass: "col-span-2",
     options: PURPOSE,
   },
@@ -138,11 +135,11 @@ const FILTER_OPTIONS = [
     placeholder: "Select address",
     icon: MapPinHouse,
     colClass: "col-span-2",
-    options: ADDRESS,
+    options: [], // Will be dynamically populated
   },
 ];
 
-export default function ClientDataTable({ data = [] }) {
+export default function ClientDataTable({ data, userRole }) {
   const [toggleFilter, setToggleFilter] = useState(false);
   const [toggleSort, setToggleSort] = useState(false);
   const [sortOrder, setSortOrder] = useState("default"); // 'default' | 'newest' | 'oldest'
@@ -156,6 +153,18 @@ export default function ClientDataTable({ data = [] }) {
     position: [],
     purpose: [],
     address: [],
+  });
+
+  const dynamicFilterOptions = FILTER_OPTIONS.map((opt) => {
+    if (opt.id === "address") {
+      let options = [];
+      const pObj = ProvincePlaces.find((p) => p.province === userRole);
+      if (pObj) {
+        options = pObj.places.map((place) => `${place}, ${userRole}`);
+      }
+      return { ...opt, options: options.sort() };
+    }
+    return opt;
   });
 
   const handleSelectFilter = (filterId, option) => {
@@ -183,26 +192,54 @@ export default function ClientDataTable({ data = [] }) {
       log.nameOfOfw?.toLowerCase().startsWith(searchQuery.toLowerCase());
 
     // 2. Exact Value Filters
-    const matchesDate = selectedFilters.date?.length === 0 || !selectedFilters.date ? true : selectedFilters.date.includes(log.date);
-    const matchesJobsite = selectedFilters.jobsite?.length === 0 || !selectedFilters.jobsite ? true : selectedFilters.jobsite.includes(log.jobsite);
-    const matchesType = selectedFilters.type?.length === 0 || !selectedFilters.type ? true : selectedFilters.type.includes(log.type);
-    const matchesPosition = selectedFilters.position?.length === 0 || !selectedFilters.position ? true : selectedFilters.position.includes(log.position);
-    const matchesPurpose = selectedFilters.purpose?.length === 0 || !selectedFilters.purpose ? true : selectedFilters.purpose.includes(log.purpose);
-    const matchesAddress = selectedFilters.address?.length === 0 || !selectedFilters.address ? true : selectedFilters.address.includes(log.address);
+    const matchesDate =
+      selectedFilters.date?.length === 0 || !selectedFilters.date
+        ? true
+        : selectedFilters.date.includes(log.date);
+    const matchesJobsite =
+      selectedFilters.jobsite?.length === 0 || !selectedFilters.jobsite
+        ? true
+        : selectedFilters.jobsite.includes(log.jobsite);
+    const matchesType =
+      selectedFilters.type?.length === 0 || !selectedFilters.type
+        ? true
+        : selectedFilters.type.includes(log.type);
+    const matchesPosition =
+      selectedFilters.position?.length === 0 || !selectedFilters.position
+        ? true
+        : selectedFilters.position.includes(log.position);
+    const matchesPurpose =
+      selectedFilters.purpose?.length === 0 || !selectedFilters.purpose
+        ? true
+        : selectedFilters.purpose.includes(log.purpose);
+    const matchesAddress =
+      selectedFilters.address?.length === 0 || !selectedFilters.address
+        ? true
+        : selectedFilters.address.includes(log.address);
 
-    return matchesSearch && matchesDate && matchesJobsite && matchesType && matchesPosition && matchesPurpose && matchesAddress;
+    return (
+      matchesSearch &&
+      matchesDate &&
+      matchesJobsite &&
+      matchesType &&
+      matchesPosition &&
+      matchesPurpose &&
+      matchesAddress
+    );
   });
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (sortOrder === "default") return 0;
-    
-    const dateA = new Date(a.date || 0).getTime();
-    const dateB = new Date(b.date || 0).getTime();
-    
+
+    const timeA = new Date(a.date).getTime() || a.id || 0;
+    const timeB = new Date(b.date).getTime() || b.id || 0;
+
     if (sortOrder === "newest") {
-      return dateB - dateA;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || 0) - (a.id || 0);
     } else {
-      return dateA - dateB;
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.id || 0) - (b.id || 0);
     }
   });
 
@@ -210,7 +247,7 @@ export default function ClientDataTable({ data = [] }) {
   const hasRecords = totalClients > 0;
 
   // Pagination logic
-  const ITEMS_PER_PAGE = 20;
+  const ITEMS_PER_PAGE = 30;
   const totalPages = Math.ceil(totalClients / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const currentLogs = sortedData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
@@ -244,25 +281,41 @@ export default function ClientDataTable({ data = [] }) {
               >
                 <ArrowUpDown strokeWidth={1.5} className="w-4 h-4" />
                 Sort by
-                <ChevronDown strokeWidth={1.5} className={`w-4 h-4 transition-transform duration-200 ${toggleSort ? "rotate-180" : ""}`} />
+                <ChevronLeft
+                  strokeWidth={1.5}
+                  className={`w-4 h-4 transition-transform duration-200 ${toggleSort ? "rotate-180" : ""}`}
+                />{" "}
+                {/* Changed from ChevronDown */}
               </button>
-              
+
               {toggleSort && (
                 <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-30 flex flex-col py-1 overflow-hidden">
                   <button
-                    onClick={() => { setSortOrder("default"); setToggleSort(false); setCurrentPage(1); }}
+                    onClick={() => {
+                      setSortOrder("default");
+                      setToggleSort(false);
+                      setCurrentPage(1);
+                    }}
                     className={`px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${sortOrder === "default" ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}
                   >
                     Default
                   </button>
                   <button
-                    onClick={() => { setSortOrder("newest"); setToggleSort(false); setCurrentPage(1); }}
+                    onClick={() => {
+                      setSortOrder("newest");
+                      setToggleSort(false);
+                      setCurrentPage(1);
+                    }}
                     className={`px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${sortOrder === "newest" ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}
                   >
                     Newest to Oldest
                   </button>
                   <button
-                    onClick={() => { setSortOrder("oldest"); setToggleSort(false); setCurrentPage(1); }}
+                    onClick={() => {
+                      setSortOrder("oldest");
+                      setToggleSort(false);
+                      setCurrentPage(1);
+                    }}
                     className={`px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${sortOrder === "oldest" ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}
                   >
                     Oldest to Newest
@@ -290,9 +343,8 @@ export default function ClientDataTable({ data = [] }) {
         </div>
         {/* toggle filter */}
         {toggleFilter && (
-          // insert filter by date / address / country / position / purpose
           <div className="rounded-lg bg-white border border-gray-300 p-4 grid grid-cols-6 gap-3 z-20">
-            {FILTER_OPTIONS.map((filter) => {
+            {dynamicFilterOptions.map((filter) => {
               const Icon = filter.icon;
               return (
                 <div
@@ -436,7 +488,13 @@ export default function ClientDataTable({ data = [] }) {
                       {startIndex + index + 1}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium whitespace-nowrap">
-                      {log.date}
+                      {log.date
+                        ? new Date(log.date).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })
+                        : "N/A"}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-900 border-r border-gray-200 font-semibold whitespace-nowrap">
                       {log.clientName}

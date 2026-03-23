@@ -62,14 +62,14 @@ const DUMMY_LOGS = [
   },
 ];
 
-export default function AdminClientsLogs() {
+export default function AdminClientsLogs({ initialData = [] }) {
   const [selectedProvince, setSelectedProvince] = useState(PROVINCES[0]);
   const [toggleDropdown, setToggleDropdown] = useState(false);
 
   const filteredData =
     selectedProvince === "MIMAROPA REGION"
-      ? DUMMY_LOGS
-      : DUMMY_LOGS.filter((log) => log.address.includes(selectedProvince));
+      ? initialData
+      : initialData.filter((log) => log.province === selectedProvince);
 
   const totalClients = filteredData.length;
   const totalMales = filteredData.filter((log) => log.sex === "M").length;
@@ -149,7 +149,7 @@ export default function AdminClientsLogs() {
             </div>
           </div>
           {/* main tables */}
-          <AdminClientDataTable data={filteredData} />
+          <AdminClientDataTable data={filteredData} selectedProvince={selectedProvince} />
         </div>
 
         {/* forms */}

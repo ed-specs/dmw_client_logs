@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronLeft, CheckCircle, X } from "lucide-react";
 import Link from "next/link";
 import { addClientLog } from "../../actions/clientLogsActions";
+import { ProvincePlaces } from "../../data/ProvincePlaces";
 
 const TYPE = ["LB", "SB"];
 
@@ -316,21 +317,31 @@ export default function AddClient({ userRole }) {
             </div>
             {/* address */}
             <div className="col-span-4 flex flex-col gap-1">
-              <label htmlFor="" className="text-gray-500 text-sm font-medium">
+              <label
+                htmlFor="address"
+                className="text-gray-500 text-sm font-medium"
+              >
                 ADDRESS
               </label>
-              <input
-                type="text"
+              <select
                 name="address"
                 id="address"
                 required
-                placeholder="Enter address"
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
-              />
-              <span className="text-xs text-gray-500">
-                CITY/MUNICIPALITY, PROVINCE (e.g. CALAPAN CITY, ORIENTAL
-                MINDORO)
-              </span>
+                defaultValue=""
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+              >
+                <option value="" disabled>
+                  Select City/Municipality
+                </option>
+                {userRole &&
+                  ProvincePlaces.find(
+                    (p) => p.province === userRole,
+                  )?.places.map((place) => (
+                    <option key={place} value={`${place}, ${userRole}`}>
+                      {place}
+                    </option>
+                  ))}
+              </select>
             </div>
 
             {/* purpose */}

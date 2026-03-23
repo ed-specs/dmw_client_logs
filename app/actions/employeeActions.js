@@ -140,17 +140,18 @@ export async function updateEmployee(formData, employeeId) {
 
 export async function deleteEmployee(employeeId) {
   try {
-    // Delete from Auth (this also revokes their login access immediately)
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(employeeId);
-    if (authError) return { success: false, error: authError.message };
-
-    // Explicitly delete from profiles if no cascade delete is configured
+    // 1. Explicitly delete from profiles first since it references Auth
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .delete()
       .eq("id", employeeId);
 
     if (profileError) return { success: false, error: profileError.message };
+
+    // 2. Delete from Auth (this revokes their login access immediately)
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(employeeId);
+    if (authError) return { success: false, error: authError.message };
+
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };

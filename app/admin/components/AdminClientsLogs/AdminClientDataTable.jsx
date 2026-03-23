@@ -1,17 +1,20 @@
 "use client";
 
-import { useState } from "react";
 import {
-  ListFilter,
   X,
+  ListFilter,
+  ArrowUpDown,
   CalendarRange,
   MapPinHouse,
   Earth,
   Briefcase,
   FileText,
+  ChevronLeft,
   ChevronDown,
-  ArrowUpDown,
 } from "lucide-react";
+
+import { useState } from "react";
+import { ProvincePlaces } from "../../../data/ProvincePlaces";
 
 const JOBSITE = [
   "U.A.E",
@@ -142,7 +145,7 @@ const FILTER_OPTIONS = [
   },
 ];
 
-export default function AdminClientDataTable({ data = [] }) {
+export default function AdminClientDataTable({ data, selectedProvince }) {
   const [toggleFilter, setToggleFilter] = useState(false);
   const [toggleSort, setToggleSort] = useState(false);
   const [sortOrder, setSortOrder] = useState("default"); // 'default' | 'newest' | 'oldest'
@@ -160,16 +163,22 @@ export default function AdminClientDataTable({ data = [] }) {
 
   const dynamicFilterOptions = FILTER_OPTIONS.map((opt) => {
     if (opt.id === "address") {
-      return { ...opt, options: [...new Set(data.map((log) => log.address))].filter(Boolean) };
-    }
-    if (opt.id === "jobsite") {
-      return { ...opt, options: [...new Set(data.map((log) => log.jobsite))].filter(Boolean) };
-    }
-    if (opt.id === "position") {
-      return { ...opt, options: [...new Set(data.map((log) => log.position))].filter(Boolean) };
-    }
-    if (opt.id === "purpose") {
-      return { ...opt, options: [...new Set(data.map((log) => log.purpose))].filter(Boolean) };
+      let options = [];
+      if (selectedProvince === "MIMAROPA REGION") {
+        ProvincePlaces.forEach((p) => {
+          p.places.forEach((place) => {
+            options.push(`${place}, ${p.province}`);
+          });
+        });
+      } else {
+        const pObj = ProvincePlaces.find(
+          (p) => p.province === selectedProvince,
+        );
+        if (pObj) {
+          options = pObj.places.map((place) => `${place}, ${selectedProvince}`);
+        }
+      }
+      return { ...opt, options: options.sort() };
     }
     return opt;
   });
@@ -238,13 +247,15 @@ export default function AdminClientDataTable({ data = [] }) {
   const sortedData = [...filteredData].sort((a, b) => {
     if (sortOrder === "default") return 0;
 
-    const dateA = new Date(a.date || 0).getTime();
-    const dateB = new Date(b.date || 0).getTime();
+    const timeA = new Date(a.date).getTime() || a.id || 0;
+    const timeB = new Date(b.date).getTime() || b.id || 0;
 
     if (sortOrder === "newest") {
-      return dateB - dateA;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || 0) - (a.id || 0);
     } else {
-      return dateA - dateB;
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.id || 0) - (b.id || 0);
     }
   });
 
@@ -252,7 +263,7 @@ export default function AdminClientDataTable({ data = [] }) {
   const hasRecords = totalClients > 0;
 
   // Pagination logic
-  const ITEMS_PER_PAGE = 20;
+  const ITEMS_PER_PAGE = 30;
   const totalPages = Math.ceil(totalClients / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const currentLogs = sortedData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
@@ -493,7 +504,13 @@ export default function AdminClientDataTable({ data = [] }) {
                       {startIndex + index + 1}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium whitespace-nowrap">
-                      {log.date}
+                      {log.date
+                        ? new Date(log.date).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })
+                        : "N/A"}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-900 border-r border-gray-200 font-semibold whitespace-nowrap">
                       {log.clientName}

@@ -26,7 +26,7 @@ export default async function AddClientPage() {
       {/* sidebar */}
       <UserNavbar />
       {/* main */}
-      <AddClient />
+      <AddClient userRole={profile?.role || "UNKNOWN"} />
     </main>
   );
 }

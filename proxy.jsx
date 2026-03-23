@@ -10,38 +10,38 @@ export async function proxy(req) {
   const pathname = req.nextUrl.pathname;
 
   // Allow unauthenticated users only on the root (login) page
-  if (!session && pathname !== '/') {
-    return Response.redirect(new URL('/', req.url));
+  if (!session && pathname !== "/") {
+    return Response.redirect(new URL("/", req.url));
   }
 
   // If a session exists, check role for route protection
   if (session) {
-    // Fetch profile role 
+    // Fetch profile role
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
+      .from("profiles")
+      .select("role")
+      .eq("id", session.user.id)
       .single();
 
     const role = profile?.role;
 
     // Prevent logged-in users from staying on the login page
-    if (pathname === '/') {
-      if (role === 'admin') {
-        return Response.redirect(new URL('/admin/dashboard', req.url));
+    if (pathname === "/") {
+      if (role === "ADMIN") {
+        return Response.redirect(new URL("/admin/dashboard", req.url));
       } else {
-        return Response.redirect(new URL('/dashboard', req.url));
+        return Response.redirect(new URL("/dashboard", req.url));
       }
     }
 
     // Admins must stay within /admin routes
-    if (role === 'admin' && !pathname.startsWith('/admin')) {
-      return Response.redirect(new URL('/admin/dashboard', req.url));
+    if (role === "ADMIN" && !pathname.startsWith("/admin")) {
+      return Response.redirect(new URL("/admin/dashboard", req.url));
     }
-    
+
     // Clients must stay out of /admin routes
-    if (role !== 'admin' && pathname.startsWith('/admin')) {
-      return Response.redirect(new URL('/dashboard', req.url));
+    if (role !== "ADMIN" && pathname.startsWith("/admin")) {
+      return Response.redirect(new URL("/dashboard", req.url));
     }
   }
 
@@ -58,6 +58,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public files (e.g., logos)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

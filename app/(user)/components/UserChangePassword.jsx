@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, X, CheckCircle } from "lucide-react";
 import { createClient } from "../../lib/supabaseClient";
 
@@ -13,6 +14,7 @@ export default function UserChangePassword() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const supabase = createClient();
 
@@ -103,9 +105,13 @@ export default function UserChangePassword() {
       setStatus("error");
       setTimeout(() => setStatus("idle"), 6000);
     } else {
-      setSuccessMessage("Password successfully changed!");
+      setSuccessMessage("Password successfully changed! Logging out...");
       setStatus("success");
-      setTimeout(() => setStatus("idle"), 6000);
+      setTimeout(async () => {
+        setStatus("idle");
+        await supabase.auth.signOut();
+        router.push("/");
+      }, 6000);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");

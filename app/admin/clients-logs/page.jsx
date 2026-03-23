@@ -36,12 +36,17 @@ export default async function AdminClientsLogsPage() {
     return null; // Prevents Admin settings from erroneously rendering if redirect throws incorrectly
   }
 
+  const { data: clientLogs } = await supabase
+    .from("client_logs")
+    .select("*")
+    .order("date", { ascending: false });
+
   return (
     <main className="flex h-dvh ">
       {/* sidebar */}
       <AdminNavbar />
       {/* main */}
-      <AdminClientsLogs />
+      <AdminClientsLogs initialData={clientLogs || []} />
     </main>
   );
 }

@@ -36,7 +36,7 @@ export default async function AdminDashboard() {
     .select("*")
     .order("created_at", { ascending: false });
 
-  console.log("AdminDashboard Check:", {
+  console.log("AdminManageEmployees Check:", {
     user_id: user?.id,
     profile,
     error,
@@ -44,13 +44,13 @@ export default async function AdminDashboard() {
 
   // If profile is missing or role is not admin → send to normal dashboard
   if (!profile || profile.role !== "ADMIN") {
-    console.log("Redirecting to /dashboard because profile is not admin");
-    redirect("/dashboard"); // or "/login" if you prefer
+    console.log("Redirecting to login because profile is not admin");
+    redirect("/"); // or "/login" if you prefer
     return null; // Prevents Admin settings from erroneously rendering if redirect throws incorrectly
   }
 
   return (
-    <main className="flex h-dvh ">
+    <main className="flex h-dvh overflow-y-auto">
       {/* sidebar */}
       <AdminNavbar />
       {/* main */}

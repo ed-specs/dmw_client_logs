@@ -2,6 +2,8 @@
 import Link from "next/link";
 import ClientDataTable from "./ClientsLogs/ClientDataTable";
 
+import { useState } from "react";
+
 import { BookOpenText } from "lucide-react";
 
 export default function ClientsLogs({
@@ -10,9 +12,33 @@ export default function ClientsLogs({
   dbJobsites = [],
   dbPositions = [],
 }) {
-  const totalClients = initialData.length;
-  const totalMales = initialData.filter((log) => log.sex === "M").length;
-  const totalFemales = initialData.filter(
+  const [selectedProvince, setSelectedProvince] = useState(userRole);
+
+  const MIMAROPA_PROVINCES = [
+    "ORIENTAL MINDORO",
+    "OCCIDENTAL MINDORO",
+    "MARINDUQUE",
+    "ROMBLON",
+    "PALAWAN",
+  ];
+
+  const tallyData = initialData.filter((log) => {
+    if (selectedProvince === "ALL CLIENTS") return true;
+    if (selectedProvince === userRole) return log.province === userRole;
+    if (selectedProvince === "OTHER PROVINCE")
+      return (
+        log.province &&
+        log.province !== userRole &&
+        MIMAROPA_PROVINCES.includes(log.province)
+      );
+    if (selectedProvince === "OUTSIDE MIMAROPA")
+      return log.province && !MIMAROPA_PROVINCES.includes(log.province);
+    return true;
+  });
+
+  const totalClients = tallyData.length;
+  const totalMales = tallyData.filter((log) => log.sex === "M").length;
+  const totalFemales = tallyData.filter(
     (log) => log.sex === "F" || log.sex === "Female",
   ).length;
 
@@ -34,6 +60,7 @@ export default function ClientsLogs({
           Add Client Log
         </Link>
       </div>
+
       {/* main */}
       <div className="flex flex-1 gap-6">
         <div className="flex flex-col flex-1 gap-6">
@@ -42,7 +69,7 @@ export default function ClientsLogs({
             {/* total clients */}
             <div className="rounded-2xl p-4 bg-blue-500 text-white flex flex-1 flex-col gap-1 border border-blue-300 shadow-sm">
               <span className="text-blue-100 font-medium text-sm">
-                Total Clients
+                Total Clients Logged
               </span>
               <h1 className="text-3xl font-bold">{totalClients}</h1>
             </div>
@@ -68,6 +95,8 @@ export default function ClientsLogs({
             userRole={userRole}
             dbJobsites={dbJobsites}
             dbPositions={dbPositions}
+            selectedProvince={selectedProvince}
+            setSelectedProvince={setSelectedProvince}
           />
         </div>
 

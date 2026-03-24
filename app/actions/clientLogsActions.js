@@ -35,9 +35,10 @@ export async function addClientLog(clientData) {
       return { success: false, error: "Failed to verify employee province routing." };
     }
 
-    // Admins assign the province manually via form, users are strictly bound to their profile role
-    let targetProvince = profile?.role || "UNKNOWN";
-    if (targetProvince === "ADMIN" && clientData.province) {
+    // Both Admins and Users can assign the province manually now via the "outside province" feature.
+    // Fallback to their role if province isn't provided (though UI requires it).
+    let targetProvince = clientData.province || profile?.role || "UNKNOWN";
+    if (profile?.role === "ADMIN" && clientData.province) {
       targetProvince = clientData.province;
     }
 

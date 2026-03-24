@@ -1,6 +1,6 @@
 import { createMiddlewareSupabase } from "./app/lib/supabaseMiddleware";
 
-export async function proxy(req) {
+export async function middleware(req) {
   const { supabase, res } = createMiddlewareSupabase(req);
 
   const {
@@ -9,7 +9,13 @@ export async function proxy(req) {
 
   const pathname = req.nextUrl.pathname;
 
-  // Allow unauthenticated users only on the root (login) page
+  // IMPORTANT: Set no-store headers so browser back button triggers this middleware again after logout.
+  // This prevents the browser from showing a cached version of a protected page.
+  res.headers.set("Cache-Control", "no-store, max-age=0");
+  res.headers.set("x-middleware-cache", "no-cache");
+
+  // Allow unauthenticated users only on the root (login) page.
+  // This dynamically covers ALL new pages you add without needing to hardcode their names.
   if (!session && pathname !== "/") {
     return Response.redirect(new URL("/", req.url));
   }
@@ -35,11 +41,13 @@ export async function proxy(req) {
     }
 
     // Admins must stay within /admin routes
+    // (This automatically protects /admin/jobsites-positions without needing to name it)
     if (role === "ADMIN" && !pathname.startsWith("/admin")) {
       return Response.redirect(new URL("/admin/dashboard", req.url));
     }
 
     // Clients must stay out of /admin routes
+    // (This automatically protects /jobsites-positions from admins, and stops clients from viewing /admin)
     if (role !== "ADMIN" && pathname.startsWith("/admin")) {
       return Response.redirect(new URL("/dashboard", req.url));
     }

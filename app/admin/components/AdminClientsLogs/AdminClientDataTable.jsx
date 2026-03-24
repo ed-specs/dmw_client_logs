@@ -20,6 +20,21 @@ import { ProvincePlaces } from "../../../data/ProvincePlaces";
 
 const SURVEY = ["GOOD", "BAD"];
 
+const MIMAROPA_PROVINCES = [
+  "ORIENTAL MINDORO",
+  "OCCIDENTAL MINDORO",
+  "MARINDUQUE",
+  "ROMBLON",
+  "PALAWAN",
+];
+
+const getDisplayAddress = (log) => {
+  if (!log.province || MIMAROPA_PROVINCES.includes(log.province)) {
+    return log.address;
+  }
+  return `${log.address}, ${log.province}`;
+};
+
 const FILTER_OPTIONS = [
   {
     id: "date",
@@ -43,7 +58,7 @@ const FILTER_OPTIONS = [
     placeholder: "Select Type",
     icon: Earth,
     colClass: "col-span-2",
-    options: ["LB", "SB"],
+    options: ["LANDBASED", "SEABASED"],
   },
   {
     id: "position",
@@ -206,6 +221,13 @@ export default function AdminClientDataTable({
             options.push(`${place}, ${p.province}`);
           });
         });
+        // Add OUTSIDE MIMAROPA addresses as options
+        const outsideLogs = data.filter(log => log.province && !MIMAROPA_PROVINCES.includes(log.province));
+        outsideLogs.forEach(log => options.push(`${log.address}, ${log.province}`));
+        options = Array.from(new Set(options));
+      } else if (selectedProvince === "OUTSIDE MIMAROPA") {
+        const outsideLogs = data.filter(log => log.province && !MIMAROPA_PROVINCES.includes(log.province));
+        options = Array.from(new Set(outsideLogs.map(log => `${log.address}, ${log.province}`)));
       } else {
         const pObj = ProvincePlaces.find(
           (p) => p.province === selectedProvince,
@@ -267,7 +289,7 @@ export default function AdminClientDataTable({
     const matchesAddress =
       selectedFilters.address?.length === 0 || !selectedFilters.address
         ? true
-        : selectedFilters.address.includes(log.address);
+        : selectedFilters.address.includes(getDisplayAddress(log));
     const matchesSurvey =
       selectedFilters.survey?.length === 0 || !selectedFilters.survey
         ? true
@@ -580,9 +602,9 @@ export default function AdminClientDataTable({
                     </td>
                     <td
                       className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 max-w-xs truncate"
-                      title={log.address}
+                      title={getDisplayAddress(log)}
                     >
-                      {log.address}
+                      {getDisplayAddress(log)}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium">
                       {log.contactNo}

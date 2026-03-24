@@ -12,6 +12,15 @@ const PROVINCES = [
   "MARINDUQUE",
   "ROMBLON",
   "PALAWAN",
+  "OUTSIDE MIMAROPA",
+];
+
+const MIMAROPA_PROVINCES = [
+  "ORIENTAL MINDORO",
+  "OCCIDENTAL MINDORO",
+  "MARINDUQUE",
+  "ROMBLON",
+  "PALAWAN",
 ];
 
 export default function AdminClientsLogs({ initialData = [], dbJobsites = [], dbPositions = [] }) {
@@ -21,6 +30,8 @@ export default function AdminClientsLogs({ initialData = [], dbJobsites = [], db
   const filteredData =
     selectedProvince === "MIMAROPA REGION"
       ? initialData
+      : selectedProvince === "OUTSIDE MIMAROPA"
+      ? initialData.filter((log) => !MIMAROPA_PROVINCES.includes(log.province))
       : initialData.filter((log) => log.province === selectedProvince);
 
   const totalClients = filteredData.length;

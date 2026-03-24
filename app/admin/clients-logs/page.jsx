@@ -31,8 +31,8 @@ export default async function AdminClientsLogsPage() {
 
   // If profile is missing or role is not admin → send to normal dashboard
   if (!profile || profile.role !== "ADMIN") {
-    console.log("Redirecting to /dashboard because profile is not admin");
-    redirect("/dashboard"); // or "/login" if you prefer
+    console.log("Redirecting to login because profile is not admin");
+    redirect("/"); // or "/login" if you prefer
     return null; // Prevents Admin settings from erroneously rendering if redirect throws incorrectly
   }
 
@@ -43,17 +43,23 @@ export default async function AdminClientsLogsPage() {
 
   // Fetch distinct jobsites and positions from isolated tables for Table Filters
   const { data: jobsitesData } = await supabase.from("jobsites").select("name");
-  const { data: positionsData } = await supabase.from("positions").select("name");
-  
+  const { data: positionsData } = await supabase
+    .from("positions")
+    .select("name");
+
   const dbJobsites = jobsitesData?.map((j) => j.name) || [];
   const dbPositions = positionsData?.map((p) => p.name) || [];
 
   return (
-    <main className="flex h-dvh ">
+    <main className="flex h-dvh overflow-y-auto">
       {/* sidebar */}
       <AdminNavbar />
       {/* main */}
-      <AdminClientsLogs initialData={clientLogs || []} dbJobsites={dbJobsites} dbPositions={dbPositions} />
+      <AdminClientsLogs
+        initialData={clientLogs || []}
+        dbJobsites={dbJobsites}
+        dbPositions={dbPositions}
+      />
     </main>
   );
 }

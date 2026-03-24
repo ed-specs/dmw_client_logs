@@ -11,6 +11,7 @@ import {
   IdCardLanyard,
   LogOut,
   BookOpenText,
+  Building2,
 } from "lucide-react";
 
 // Easily add, modify, or remove sections and items here
@@ -20,6 +21,11 @@ const MENU_SECTIONS = [
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { name: "Client's Logs", href: "/clients-logs", icon: BookOpenText },
+      {
+        name: "Jobsites & Positions",
+        href: "/jobsites-positions",
+        icon: Building2,
+      },
     ],
   },
   {
@@ -38,11 +44,12 @@ export default function UserNavbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.replace("/"); // redirect to login page
+    // Use window.location.href instead of router.replace to completely clear Next.js client router cache
+    window.location.href = "/";
   };
 
   return (
-    <div className="h-full w-80 bg-gray-900 text-white p-6 flex flex-col gap-8">
+    <div className="h-full w-80 bg-gray-900 text-white p-6 flex flex-col gap-8 sticky top-0">
       <div className="flex flex-col flex-1 gap-6">
         {/* DMW LOGO */}
         <div className="flex gap-3 items-center justify-center py-2">

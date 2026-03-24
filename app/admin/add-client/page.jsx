@@ -35,12 +35,19 @@ export default async function AdminAddClientPage() {
     return null; // Prevents Admin settings from erroneously rendering if redirect throws incorrectly
   }
 
+  // Fetch distinct jobsites and positions from isolated tables
+  const { data: jobsitesData } = await supabase.from("jobsites").select("name");
+  const { data: positionsData } = await supabase.from("positions").select("name");
+  
+  const dbJobsites = jobsitesData?.map((j) => j.name) || [];
+  const dbPositions = positionsData?.map((p) => p.name) || [];
+
   return (
     <main className="flex h-dvh ">
       {/* sidebar */}
       <AdminNavbar />
       {/* main */}
-      <AdminAddClient />
+      <AdminAddClient dbJobsites={dbJobsites} dbPositions={dbPositions} />
     </main>
   );
 }

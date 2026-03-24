@@ -21,12 +21,23 @@ export default async function AddClientPage() {
     .eq("id", user.id)
     .single();
 
+  // Fetch distinct jobsites and positions from isolated tables
+  const { data: jobsitesData } = await supabase.from("jobsites").select("name");
+  const { data: positionsData } = await supabase.from("positions").select("name");
+  
+  const dbJobsites = jobsitesData?.map((j) => j.name) || [];
+  const dbPositions = positionsData?.map((p) => p.name) || [];
+
   return (
     <main className="flex h-dvh ">
       {/* sidebar */}
       <UserNavbar />
       {/* main */}
-      <AddClient userRole={profile?.role || "UNKNOWN"} />
+      <AddClient 
+        userRole={profile?.role || "UNKNOWN"} 
+        dbJobsites={dbJobsites} 
+        dbPositions={dbPositions} 
+      />
     </main>
   );
 }

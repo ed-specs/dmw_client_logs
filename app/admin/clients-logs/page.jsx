@@ -41,12 +41,19 @@ export default async function AdminClientsLogsPage() {
     .select("*")
     .order("date", { ascending: false });
 
+  // Fetch distinct jobsites and positions from isolated tables for Table Filters
+  const { data: jobsitesData } = await supabase.from("jobsites").select("name");
+  const { data: positionsData } = await supabase.from("positions").select("name");
+  
+  const dbJobsites = jobsitesData?.map((j) => j.name) || [];
+  const dbPositions = positionsData?.map((p) => p.name) || [];
+
   return (
     <main className="flex h-dvh ">
       {/* sidebar */}
       <AdminNavbar />
       {/* main */}
-      <AdminClientsLogs initialData={clientLogs || []} />
+      <AdminClientsLogs initialData={clientLogs || []} dbJobsites={dbJobsites} dbPositions={dbPositions} />
     </main>
   );
 }

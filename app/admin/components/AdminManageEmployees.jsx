@@ -27,7 +27,7 @@ const ROLE = [
   "PALAWAN",
 ];
 
-const STATUS = ["activated", "pending"];
+const STATUS = ["ACTIVATED", "PENDING"];
 
 const FILTER_OPTIONS = [
   {
@@ -77,6 +77,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
     role: [],
     status: [],
   });
+  const [isFocused, setIsFocused] = useState(false);
 
   // Derived Filtered Data
   const filteredEmployees = employees.filter((emp) => {
@@ -102,10 +103,10 @@ export default function AdminManageEmployees({ initialData = [] }) {
   // Derived Sorted Data
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
     if (sortOrder === "default") return 0;
-    
+
     const dateA = new Date(a.created_at || 0).getTime();
     const dateB = new Date(b.created_at || 0).getTime();
-    
+
     if (sortOrder === "newest") {
       return dateB - dateA; // descending
     } else {
@@ -282,17 +283,32 @@ export default function AdminManageEmployees({ initialData = [] }) {
         <div className="flex flex-col gap-3 bg-white p-4 rounded-2xl border border-gray-300">
           {/* filter header */}
           <div className="flex items-center justify-between">
-            <input
-              type="text"
-              name="search"
-              placeholder="Search employee by name or email..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 w-96 shadow-sm"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                name="search"
+                placeholder="Search employee by name or email..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                onInput={() => setIsFocused(true)}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 w-96"
+              />
+              {isFocused && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setIsFocused(false);
+                  }}
+                  className="px-4 py-2 text-sm rounded-lg flex items-center justify-center gap-2 border border-gray-300 hover:bg-gray-100 transition-colors duration-150 cursor-pointer"
+                >
+                  Clear search
+                </button>
+              )}
+            </div>
+
             <div className="flex gap-2 relative">
               <div className="relative">
                 <button
@@ -300,29 +316,44 @@ export default function AdminManageEmployees({ initialData = [] }) {
                     setToggleSort(!toggleSort);
                     setToggleFilter(false); // close filter if sort is opened
                   }}
-                  className="px-4 py-2 border text-sm border-gray-300 bg-white shadow-sm rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150"
+                  className="px-4 py-2 border text-sm border-gray-300 bg-white  rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150"
                 >
                   <ArrowUpDown strokeWidth={1.5} className="w-4 h-4" />
                   Sort by
-                  <ChevronDown strokeWidth={1.5} className={`w-4 h-4 transition-transform duration-200 ${toggleSort ? "rotate-180" : ""}`} />
+                  <ChevronDown
+                    strokeWidth={1.5}
+                    className={`w-4 h-4 transition-transform duration-200 ${toggleSort ? "rotate-180" : ""}`}
+                  />
                 </button>
-                
+
                 {toggleSort && (
-                  <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-30 flex flex-col py-1 overflow-hidden">
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-300 rounded-lg  z-30 flex flex-col py-1 overflow-hidden">
                     <button
-                      onClick={() => { setSortOrder("default"); setToggleSort(false); setCurrentPage(1); }}
+                      onClick={() => {
+                        setSortOrder("default");
+                        setToggleSort(false);
+                        setCurrentPage(1);
+                      }}
                       className={`px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${sortOrder === "default" ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}
                     >
                       Default
                     </button>
                     <button
-                      onClick={() => { setSortOrder("newest"); setToggleSort(false); setCurrentPage(1); }}
+                      onClick={() => {
+                        setSortOrder("newest");
+                        setToggleSort(false);
+                        setCurrentPage(1);
+                      }}
                       className={`px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${sortOrder === "newest" ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}
                     >
                       Newest to Oldest
                     </button>
                     <button
-                      onClick={() => { setSortOrder("oldest"); setToggleSort(false); setCurrentPage(1); }}
+                      onClick={() => {
+                        setSortOrder("oldest");
+                        setToggleSort(false);
+                        setCurrentPage(1);
+                      }}
                       className={`px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${sortOrder === "oldest" ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}
                     >
                       Oldest to Newest
@@ -336,7 +367,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
                   setToggleFilter(!toggleFilter);
                   setToggleSort(false); // close sort if filter is opened
                 }}
-                className="px-4 py-2 border text-sm border-gray-300 bg-white shadow-sm rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150"
+                className="px-4 py-2 border text-sm border-gray-300 bg-white  rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150"
               >
                 {toggleFilter ? (
                   <X strokeWidth={1.5} className="w-4 h-4" />
@@ -412,7 +443,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
         </div>
 
         {/* tables */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-300 overflow-hidden flex flex-col mt-2 flex-1 min-h-0">
+        <div className="bg-white rounded-lg  border border-gray-300 overflow-hidden flex flex-col mt-2 flex-1 min-h-0">
           <div className="overflow-x-auto overflow-y-auto flex-1 h-0 w-full relative">
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 border-b border-gray-300 text-gray-700 sticky top-0 z-10">
@@ -468,11 +499,14 @@ export default function AdminManageEmployees({ initialData = [] }) {
                       </td>
                       <td className="px-3 py-3 text-xs text-gray-500 border-r border-gray-200 font-medium">
                         {emp.created_at
-                          ? new Date(emp.created_at).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })
+                          ? new Date(emp.created_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              },
+                            )
                           : "N/A"}
                       </td>
                       <td className="px-3 py-3 text-xs text-center border-gray-200 align-middle">
@@ -548,7 +582,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
                 </div>
                 <div>
                   <nav
-                    className="isolate inline-flex -space-x-px rounded-md shadow-sm"
+                    className="isolate inline-flex -space-x-px rounded-md "
                     aria-label="Pagination"
                   >
                     <button
@@ -723,7 +757,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
 
       {/* success message */}
       <div
-        className={`fixed top-4 right-4 p-4 z-60 bg-green-500 text-white rounded-2xl flex items-center gap-2 shadow-lg transition-all duration-300 transform max-w-sm ${status === "success" ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0 pointer-events-none"}`}
+        className={`fixed top-4 right-4 p-4 z-60 bg-green-500 text-white rounded-2xl flex items-center gap-2  transition-all duration-300 transform max-w-sm ${status === "success" ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0 pointer-events-none"}`}
       >
         <CheckCircle strokeWidth={1.5} className="w-5 h-5 shrink-0" />
         <span className="text-sm font-medium leading-tight">
@@ -733,7 +767,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
 
       {/* error message */}
       <div
-        className={`fixed top-4 right-4 p-4 z-60 bg-red-500 text-white rounded-2xl flex items-center gap-2 shadow-lg transition-all duration-300 transform ${status === "error" ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0 pointer-events-none"}`}
+        className={`fixed top-4 right-4 p-4 z-60 bg-red-500 text-white rounded-2xl flex items-center gap-2  transition-all duration-300 transform ${status === "error" ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0 pointer-events-none"}`}
       >
         <X strokeWidth={1.5} className="w-5 h-5" />
         {errorMessage}

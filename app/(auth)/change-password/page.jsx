@@ -9,7 +9,7 @@ import { activateEmployeeStatus } from "../../actions/employeeActions";
 export default function ChangePasswordPage() {
   const supabase = createClient();
   const router = useRouter();
-  
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState("idle"); // 'idle' | 'success' | 'error'
@@ -22,7 +22,9 @@ export default function ChangePasswordPage() {
   useEffect(() => {
     // Verify user is actually logged in and get their ID
     const verifySession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         router.push("/");
       } else {
@@ -34,7 +36,7 @@ export default function ChangePasswordPage() {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    setError(null);
+    setErrorMessage(null);
 
     const hasMinLength = newPassword.length >= 8;
     const hasUpper = /[A-Z]/.test(newPassword);
@@ -42,10 +44,18 @@ export default function ChangePasswordPage() {
     const hasNumber = /[0-9]/.test(newPassword);
     const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
 
-    const criteriaCount = [hasMinLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
+    const criteriaCount = [
+      hasMinLength,
+      hasUpper,
+      hasLower,
+      hasNumber,
+      hasSpecial,
+    ].filter(Boolean).length;
 
     if (criteriaCount < 5) {
-      setErrorMessage("Please ensure your new password meets all security requirements.");
+      setErrorMessage(
+        "Please ensure your new password meets all security requirements.",
+      );
       setStatus("error");
       setTimeout(() => setStatus("idle"), 6000);
       return;
@@ -62,7 +72,7 @@ export default function ChangePasswordPage() {
 
     // 1. Update Auth password securely
     const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword
+      password: newPassword,
     });
 
     if (updateError) {
@@ -93,7 +103,7 @@ export default function ChangePasswordPage() {
 
     setSuccessMessage("Account fully secured!");
     setStatus("success");
-    
+
     // Quick delay so they can see the success toast before unmounting
     setTimeout(() => {
       if (profile?.role === "admin") {
@@ -110,13 +120,16 @@ export default function ChangePasswordPage() {
         <div className="flex flex-col gap-2 text-center">
           <h1 className="text-2xl font-bold">Welcome!</h1>
           <p className="text-gray-600 text-sm">
-            For security reasons, please change your temporary password before continuing to your dashboard.
+            For security reasons, please change your temporary password before
+            continuing to your dashboard.
           </p>
         </div>
 
         <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label htmlFor="newPassword" className="text-sm font-medium">New Password</label>
+            <label htmlFor="newPassword" className="text-sm font-medium">
+              New Password
+            </label>
             <input
               id="newPassword"
               type="password"
@@ -137,7 +150,13 @@ export default function ChangePasswordPage() {
               const hasNumber = /[0-9]/.test(newPassword);
               const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
 
-              const criteriaCount = [hasMinLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
+              const criteriaCount = [
+                hasMinLength,
+                hasUpper,
+                hasLower,
+                hasNumber,
+                hasSpecial,
+              ].filter(Boolean).length;
 
               if (!isFocused || criteriaCount === 5) return null;
 
@@ -151,31 +170,107 @@ export default function ChangePasswordPage() {
               return (
                 <div className="mt-2 flex flex-col gap-2">
                   <div className="flex items-center gap-2">
-                    <div className={`flex flex-1 p-0.5 rounded-full transition-colors duration-300 ${strengthScore >= 1 ? (strengthScore === 1 ? "bg-red-500" : strengthScore === 2 ? "bg-yellow-500" : "bg-green-500") : "bg-gray-300"}`}></div>
-                    <div className={`flex flex-1 p-0.5 rounded-full transition-colors duration-300 ${strengthScore >= 2 ? (strengthScore === 2 ? "bg-yellow-500" : "bg-green-500") : "bg-gray-300"}`}></div>
-                    <div className={`flex flex-1 p-0.5 rounded-full transition-colors duration-300 ${strengthScore >= 3 ? "bg-green-500" : "bg-gray-300"}`}></div>
+                    <div
+                      className={`flex flex-1 p-0.5 rounded-full transition-colors duration-300 ${strengthScore >= 1 ? (strengthScore === 1 ? "bg-red-500" : strengthScore === 2 ? "bg-yellow-500" : "bg-green-500") : "bg-gray-300"}`}
+                    ></div>
+                    <div
+                      className={`flex flex-1 p-0.5 rounded-full transition-colors duration-300 ${strengthScore >= 2 ? (strengthScore === 2 ? "bg-yellow-500" : "bg-green-500") : "bg-gray-300"}`}
+                    ></div>
+                    <div
+                      className={`flex flex-1 p-0.5 rounded-full transition-colors duration-300 ${strengthScore >= 3 ? "bg-green-500" : "bg-gray-300"}`}
+                    ></div>
                   </div>
 
                   <div className="flex flex-col p-3 rounded-lg bg-gray-50 border border-gray-100 gap-2 mt-1">
                     <div className="flex items-center gap-2">
-                      {hasMinLength ? <Check strokeWidth={3} className="w-4 h-4 text-green-600 shrink-0" /> : <X strokeWidth={3} className="w-4 h-4 text-gray-400 shrink-0" />}
-                      <p className={`text-sm leading-tight ${hasMinLength ? 'text-green-600 font-medium' : 'text-gray-500'}`}>Must be at least 8 characters long</p>
+                      {hasMinLength ? (
+                        <Check
+                          strokeWidth={3}
+                          className="w-4 h-4 text-green-600 shrink-0"
+                        />
+                      ) : (
+                        <X
+                          strokeWidth={3}
+                          className="w-4 h-4 text-gray-400 shrink-0"
+                        />
+                      )}
+                      <p
+                        className={`text-sm leading-tight ${hasMinLength ? "text-green-600 font-medium" : "text-gray-500"}`}
+                      >
+                        Must be at least 8 characters long
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {hasUpper ? <Check strokeWidth={3} className="w-4 h-4 text-green-600 shrink-0" /> : <X strokeWidth={3} className="w-4 h-4 text-gray-400 shrink-0" />}
-                      <p className={`text-sm leading-tight ${hasUpper ? 'text-green-600 font-medium' : 'text-gray-500'}`}>Must contain at least one uppercase letter</p>
+                      {hasUpper ? (
+                        <Check
+                          strokeWidth={3}
+                          className="w-4 h-4 text-green-600 shrink-0"
+                        />
+                      ) : (
+                        <X
+                          strokeWidth={3}
+                          className="w-4 h-4 text-gray-400 shrink-0"
+                        />
+                      )}
+                      <p
+                        className={`text-sm leading-tight ${hasUpper ? "text-green-600 font-medium" : "text-gray-500"}`}
+                      >
+                        Must contain at least one uppercase letter
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {hasLower ? <Check strokeWidth={3} className="w-4 h-4 text-green-600 shrink-0" /> : <X strokeWidth={3} className="w-4 h-4 text-gray-400 shrink-0" />}
-                      <p className={`text-sm leading-tight ${hasLower ? 'text-green-600 font-medium' : 'text-gray-500'}`}>Must contain at least one lowercase letter</p>
+                      {hasLower ? (
+                        <Check
+                          strokeWidth={3}
+                          className="w-4 h-4 text-green-600 shrink-0"
+                        />
+                      ) : (
+                        <X
+                          strokeWidth={3}
+                          className="w-4 h-4 text-gray-400 shrink-0"
+                        />
+                      )}
+                      <p
+                        className={`text-sm leading-tight ${hasLower ? "text-green-600 font-medium" : "text-gray-500"}`}
+                      >
+                        Must contain at least one lowercase letter
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {hasNumber ? <Check strokeWidth={3} className="w-4 h-4 text-green-600 shrink-0" /> : <X strokeWidth={3} className="w-4 h-4 text-gray-400 shrink-0" />}
-                      <p className={`text-sm leading-tight ${hasNumber ? 'text-green-600 font-medium' : 'text-gray-500'}`}>Must contain at least one number</p>
+                      {hasNumber ? (
+                        <Check
+                          strokeWidth={3}
+                          className="w-4 h-4 text-green-600 shrink-0"
+                        />
+                      ) : (
+                        <X
+                          strokeWidth={3}
+                          className="w-4 h-4 text-gray-400 shrink-0"
+                        />
+                      )}
+                      <p
+                        className={`text-sm leading-tight ${hasNumber ? "text-green-600 font-medium" : "text-gray-500"}`}
+                      >
+                        Must contain at least one number
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {hasSpecial ? <Check strokeWidth={3} className="w-4 h-4 text-green-600 shrink-0" /> : <X strokeWidth={3} className="w-4 h-4 text-gray-400 shrink-0" />}
-                      <p className={`text-sm leading-tight ${hasSpecial ? 'text-green-600 font-medium' : 'text-gray-500'}`}>Must contain at least one special character</p>
+                      {hasSpecial ? (
+                        <Check
+                          strokeWidth={3}
+                          className="w-4 h-4 text-green-600 shrink-0"
+                        />
+                      ) : (
+                        <X
+                          strokeWidth={3}
+                          className="w-4 h-4 text-gray-400 shrink-0"
+                        />
+                      )}
+                      <p
+                        className={`text-sm leading-tight ${hasSpecial ? "text-green-600 font-medium" : "text-gray-500"}`}
+                      >
+                        Must contain at least one special character
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -183,7 +278,9 @@ export default function ChangePasswordPage() {
             })()}
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</label>
+            <label htmlFor="confirmPassword" className="text-sm font-medium">
+              Confirm Password
+            </label>
             <input
               id="confirmPassword"
               type="password"
@@ -195,7 +292,7 @@ export default function ChangePasswordPage() {
               className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={loading}

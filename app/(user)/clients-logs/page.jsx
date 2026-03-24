@@ -26,15 +26,22 @@ export default async function ClientsLogsPage() {
   const { data: clientLogs } = await supabase
     .from("client_logs")
     .select("*")
-    .eq("province", userRole)
+    .eq("province", profile.role)
     .order("date", { ascending: false });
+
+  // Fetch distinct jobsites and positions from isolated tables for Table Filters
+  const { data: jobsitesData } = await supabase.from("jobsites").select("name");
+  const { data: positionsData } = await supabase.from("positions").select("name");
+  
+  const dbJobsites = jobsitesData?.map((j) => j.name) || [];
+  const dbPositions = positionsData?.map((p) => p.name) || [];
 
   return (
     <main className="flex h-dvh ">
       {/* sidebar */}
       <UserNavbar />
       {/* main */}
-      <ClientsLogs initialData={clientLogs || []} userRole={userRole} />
+      <ClientsLogs initialData={clientLogs || []} userRole={profile.role} dbJobsites={dbJobsites} dbPositions={dbPositions} />
     </main>
   );
 }

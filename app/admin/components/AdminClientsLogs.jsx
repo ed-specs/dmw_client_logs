@@ -14,55 +14,7 @@ const PROVINCES = [
   "PALAWAN",
 ];
 
-const DUMMY_LOGS = [
-  {
-    id: 1,
-    date: "JANUARY 2, 2026",
-    clientName: "EDWARD C. GATBONTON",
-    age: 22,
-    sex: "M",
-    address: "VICTORIA, ORIENTAL MINDORO",
-    contactNo: "09162561433",
-    nameOfOfw: "EDWARD C. GATBONTON",
-    jobsite: "QATAR",
-    type: "LB",
-    position: "CAREGIVER",
-    purpose: "OEC",
-    survey: "GOOD",
-  },
-  {
-    id: 2,
-    date: "JANUARY 5, 2026",
-    clientName: "MARIA CLARA SANTOS",
-    age: 28,
-    sex: "F",
-    address: "CALAPAN, ORIENTAL MINDORO",
-    contactNo: "09123456789",
-    nameOfOfw: "MARIA CLARA SANTOS",
-    jobsite: "JAPAN",
-    type: "LB",
-    position: "DOMESTIC HELPER",
-    purpose: "OEC",
-    survey: "GOOD",
-  },
-  {
-    id: 3,
-    date: "JANUARY 10, 2026",
-    clientName: "JUAN DELA CRUZ",
-    age: 45,
-    sex: "M",
-    address: "NAUJAN, ORIENTAL MINDORO",
-    contactNo: "09987654321",
-    nameOfOfw: "JUAN DELA CRUZ",
-    jobsite: "SAUDI ARABIA",
-    type: "LB",
-    position: "ELECTRICIAN",
-    purpose: "FINANCIAL ASSISTANCE",
-    survey: "GOOD",
-  },
-];
-
-export default function AdminClientsLogs({ initialData = [] }) {
+export default function AdminClientsLogs({ initialData = [], dbJobsites = [], dbPositions = [] }) {
   const [selectedProvince, setSelectedProvince] = useState(PROVINCES[0]);
   const [toggleDropdown, setToggleDropdown] = useState(false);
 
@@ -82,21 +34,26 @@ export default function AdminClientsLogs({ initialData = [] }) {
       {/* header */}
       <div className="flex items-center justify-between z-40 relative">
         <div className="relative">
-          <button
-            onClick={() => setToggleDropdown(!toggleDropdown)}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
-          >
-            <h1 className="text-xl font-semibold uppercase">
-              {selectedProvince}
-            </h1>
-            <ChevronDown
-              strokeWidth={2}
-              className={`w-5 h-5 transition-transform duration-200 ${toggleDropdown ? "rotate-180" : ""}`}
-            />
-          </button>
+          <div className="flex flex-col">
+            <span className="text-gray-500 text-sm">
+              Current selected province/region
+            </span>
+            <button
+              onClick={() => setToggleDropdown(!toggleDropdown)}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+            >
+              <h1 className="text-xl font-semibold uppercase">
+                {selectedProvince}
+              </h1>
+              <ChevronDown
+                strokeWidth={2}
+                className={`w-5 h-5 transition-transform duration-200 ${toggleDropdown ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
 
           {toggleDropdown && (
-            <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-gray-300 rounded-lg shadow-lg z-50 flex flex-col py-1 overflow-hidden">
+            <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-gray-300 rounded-lg  z-50 flex flex-col py-1 overflow-hidden">
               {PROVINCES.map((province) => (
                 <button
                   key={province}
@@ -149,7 +106,12 @@ export default function AdminClientsLogs({ initialData = [] }) {
             </div>
           </div>
           {/* main tables */}
-          <AdminClientDataTable data={filteredData} selectedProvince={selectedProvince} />
+          <AdminClientDataTable
+            data={filteredData}
+            selectedProvince={selectedProvince}
+            dbJobsites={dbJobsites}
+            dbPositions={dbPositions}
+          />
         </div>
 
         {/* forms */}

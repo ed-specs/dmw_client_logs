@@ -37,7 +37,9 @@ const SEX = ["M", "F"];
 
 const SURVEY = ["GOOD", "BAD"];
 
-export default function AdminAddClient() {
+export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
+  const allJobsites = [...dbJobsites].sort();
+  const allPositions = [...dbPositions].sort();
   const [status, setStatus] = useState("idle"); // 'idle' | 'submitting' | 'success' | 'error'
   const [errorMessage, setErrorMessage] = useState("");
   const [clientName, setClientName] = useState("");
@@ -57,7 +59,6 @@ export default function AdminAddClient() {
       "nameOfOfw",
       "age",
       "sex",
-      "contactNo",
       "jobsite",
       "province",
       "type",
@@ -74,6 +75,32 @@ export default function AdminAddClient() {
       setErrorMessage("Please fill-up all fields");
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
+      return;
+    }
+
+    if (!data.contactNo || data.contactNo.trim() === "") {
+      data.contactNo = "N/A";
+    }
+
+    const isAcronym = (word, allowedList) => {
+      const upper = word.toUpperCase().trim();
+      if (allowedList.includes(upper)) return false; // Allowed because it's predefined
+      if (upper.length <= 4 && !upper.includes(" ")) return true;
+      if (upper.includes(".")) return true;
+      return false;
+    };
+
+    if (isAcronym(data.jobsite, allJobsites)) {
+      setErrorMessage("Jobsite must be a complete word, not an acronym.");
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 6000);
+      return;
+    }
+
+    if (isAcronym(data.position, allPositions)) {
+      setErrorMessage("Position must be a complete word, not an acronym.");
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 6000);
       return;
     }
 
@@ -145,8 +172,8 @@ export default function AdminAddClient() {
         className="flex flex-col gap-4 p-6 rounded-2xl border border-gray-300 bg-white"
       >
         <fieldset
-          disabled={status === "submitting"}
-          className="border-none p-0 m-0 flex flex-col gap-4"
+          disabled={status !== "idle"}
+          className="border-none p-0 m-0 flex flex-col gap-4 disabled:opacity-50 disabled:pointer-events-none transition-opacity duration-200"
         >
           <div className="grid grid-cols-7 gap-4">
             {/* date */}
@@ -279,10 +306,10 @@ export default function AdminAddClient() {
                 type="text"
                 name="contactNo"
                 id="contactNo"
-                required
-                placeholder="Enter contact no"
+                placeholder="Enter contact no."
                 className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
               />
+              <span className="text-xs text-gray-500">Optional</span>
             </div>
             {/* jobsite */}
             <div className="col-span-1 flex flex-col gap-1">
@@ -290,13 +317,19 @@ export default function AdminAddClient() {
                 JOBSITE
               </label>
               <input
-                type="text"
+                list="jobsites-list"
                 name="jobsite"
                 id="jobsite"
                 required
-                placeholder="Enter jobsite"
+                placeholder="Enter or select jobsite"
                 className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
               />
+              <datalist id="jobsites-list">
+                {allJobsites.map((opt) => (
+                  <option key={opt} value={opt} />
+                ))}
+              </datalist>
+              <span className="text-xs text-gray-500">Do not use acronym.</span>
             </div>
             {/* position */}
             <div className="col-span-2 flex flex-col gap-1">
@@ -304,13 +337,19 @@ export default function AdminAddClient() {
                 POSITION
               </label>
               <input
-                type="text"
+                list="positions-list"
                 name="position"
                 id="position"
                 required
-                placeholder="Enter position"
+                placeholder="Enter or select position"
                 className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
               />
+              <datalist id="positions-list">
+                {allPositions.map((opt) => (
+                  <option key={opt} value={opt} />
+                ))}
+              </datalist>
+              <span className="text-xs text-gray-500">Do not use acronym.</span>
             </div>
             {/* type */}
             <div className="col-span-1 flex flex-col gap-1">
@@ -333,6 +372,9 @@ export default function AdminAddClient() {
                   </option>
                 ))}
               </select>
+              <span className="text-xs text-gray-500">
+                Landbased or Seabased.
+              </span>
             </div>
             {/* address */}
             <div className="col-span-4 flex flex-col gap-1">

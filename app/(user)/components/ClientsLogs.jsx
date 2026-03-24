@@ -4,7 +4,12 @@ import ClientDataTable from "./ClientsLogs/ClientDataTable";
 
 import { BookOpenText } from "lucide-react";
 
-export default function ClientsLogs({ initialData = [], userRole }) {
+export default function ClientsLogs({
+  initialData = [],
+  userRole,
+  dbJobsites = [],
+  dbPositions = [],
+}) {
   const totalClients = initialData.length;
   const totalMales = initialData.filter((log) => log.sex === "M").length;
   const totalFemales = initialData.filter(
@@ -15,7 +20,12 @@ export default function ClientsLogs({ initialData = [], userRole }) {
     <div className="flex flex-col flex-1 gap-4 p-6 bg-gray-50">
       {/* header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{userRole}</h1>
+        <div className="flex flex-col">
+          <span className="text-sm text-gray-500">
+            Designated province/region
+          </span>
+          <h1 className="text-xl font-semibold">{userRole}</h1>
+        </div>
         <Link
           href="/add-client"
           className="rounded-lg px-4 py-2 bg-blue-500 hover:bg-blue-600 transition-colors duration-150 cursor-pointer text-white flex items-center gap-2"
@@ -53,7 +63,12 @@ export default function ClientsLogs({ initialData = [], userRole }) {
             </div>
           </div>
           {/* main tables */}
-          <ClientDataTable data={initialData} userRole={userRole} />
+          <ClientDataTable
+            data={initialData}
+            userRole={userRole}
+            dbJobsites={dbJobsites}
+            dbPositions={dbPositions}
+          />
         </div>
 
         {/* forms */}

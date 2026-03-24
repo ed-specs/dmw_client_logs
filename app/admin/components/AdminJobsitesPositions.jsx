@@ -7,7 +7,7 @@ export default function AdminJobsitesPositions() {
   const [toggleAddJobsite, setToggleAddJobsite] = useState(false);
   const [toggleAddPosition, setToggleAddPosition] = useState(false);
   return (
-    <div className="flex flex-col flex-1 gap-4 p-6 bg-gray-50">
+    <div className="flex flex-col flex-1 gap-4 p-4 bg-gray-50 h-[1000px]">
       {/* header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold uppercase">

@@ -36,14 +36,63 @@ export default function ClientsLogs({
     return true;
   });
 
-  const totalClients = tallyData.length;
-  const totalMales = tallyData.filter((log) => log.sex === "M").length;
-  const totalFemales = tallyData.filter(
-    (log) => log.sex === "F" || log.sex === "Female",
-  ).length;
+  const normalizeType = (type = "") => {
+    const upper = String(type).toUpperCase().trim();
+    if (upper === "LB" || upper === "LANDBASED") return "LANDBASED";
+    if (upper === "SB" || upper === "SEABASED") return "SEABASED";
+    return upper;
+  };
+
+  const isMale = (sex = "") => String(sex).toUpperCase().trim() === "M";
+  const isFemale = (sex = "") => {
+    const upper = String(sex).toUpperCase().trim();
+    return upper === "F" || upper === "FEMALE";
+  };
+
+  const computeTallyStats = (logs = []) => {
+    const landbasedLogs = logs.filter(
+      (log) => normalizeType(log.type) === "LANDBASED",
+    );
+    const seabasedLogs = logs.filter(
+      (log) => normalizeType(log.type) === "SEABASED",
+    );
+
+    return {
+      totalClients: logs.length,
+      totalMales: logs.filter((log) => isMale(log.sex)).length,
+      totalFemales: logs.filter((log) => isFemale(log.sex)).length,
+      totalLandbased: landbasedLogs.length,
+      landbasedMales: landbasedLogs.filter((log) => isMale(log.sex)).length,
+      landbasedFemales: landbasedLogs.filter((log) => isFemale(log.sex)).length,
+      totalSeabased: seabasedLogs.length,
+      seabasedMales: seabasedLogs.filter((log) => isMale(log.sex)).length,
+      seabasedFemales: seabasedLogs.filter((log) => isFemale(log.sex)).length,
+    };
+  };
+
+  const [tallyStats, setTallyStats] = useState(() => computeTallyStats(tallyData));
+
+  const updateTallyStats = (nextStats) => {
+    setTallyStats((prev) => {
+      if (
+        prev.totalClients === nextStats.totalClients &&
+        prev.totalMales === nextStats.totalMales &&
+        prev.totalFemales === nextStats.totalFemales &&
+        prev.totalLandbased === nextStats.totalLandbased &&
+        prev.landbasedMales === nextStats.landbasedMales &&
+        prev.landbasedFemales === nextStats.landbasedFemales &&
+        prev.totalSeabased === nextStats.totalSeabased &&
+        prev.seabasedMales === nextStats.seabasedMales &&
+        prev.seabasedFemales === nextStats.seabasedFemales
+      ) {
+        return prev;
+      }
+      return nextStats;
+    });
+  };
 
   return (
-    <div className="flex flex-col flex-1 gap-4 p-6 bg-gray-50">
+    <div className="flex flex-col flex-1 gap-4 p-4 bg-gray-50">
       {/* header */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
@@ -65,29 +114,96 @@ export default function ClientsLogs({
       <div className="flex flex-1 gap-6">
         <div className="flex flex-col flex-1 gap-6">
           {/* Tallys */}
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex gap-3">
             {/* total clients */}
-            <div className="rounded-2xl p-4 bg-blue-500 text-white flex flex-1 flex-col gap-1 border border-blue-300 shadow-sm">
-              <span className="text-blue-100 font-medium text-sm">
-                Total Clients Logged
-              </span>
-              <h1 className="text-3xl font-bold">{totalClients}</h1>
+            <div className="rounded-2xl px-5 py-4 bg-white  flex flex-1 items-center justify-between gap-1 border border-gray-300">
+              <div className="flex flex-col gap-1">
+                <span className=" font-semibold text-sm text-gray-500">
+                  TOTAL CLIENTS LOGGED
+                </span>
+                <h1 className="text-2xl font-bold">{tallyStats.totalClients}</h1>
+              </div>
+
+              <div className="flex items-center justify-center gap-6">
+                {/* males */}
+                <div className="flex flex-col items-center justify-cente gap-1">
+                  <span className="text-xs text-gray-500 font-medium">
+                    Males
+                  </span>
+                  <h1 className="text- font-bold">{tallyStats.totalMales}</h1>
+                </div>
+
+                {/* females */}
+                <div className="flex flex-col items-center justify-cente gap-1">
+                  <span className="text-xs text-gray-500 font-medium">
+                    Females
+                  </span>
+                  <h1 className="text- font-bold">{tallyStats.totalFemales}</h1>
+                </div>
+              </div>
             </div>
-            {/* total males */}
-            <div className="rounded-2xl p-4 bg-green-500 text-white flex flex-1 flex-col gap-1 border border-green-300 shadow-sm">
-              <span className="text-green-100 font-medium text-sm">
-                Total Males
-              </span>
-              <h1 className="text-3xl font-bold">{totalMales}</h1>
+            {/* land-based */}
+            <div className="rounded-2xl px-5 py-4 bg-white  flex flex-1 items-center justify-between gap-1 border border-gray-300">
+              <div className="flex flex-col gap-1">
+                <span className=" font-semibold text-sm text-gray-500">
+                  LAND-BASED OFWS
+                </span>
+                <h1 className="text-2xl font-bold">{tallyStats.totalLandbased}</h1>
+              </div>
+
+              <div className="flex items-center justify-center gap-6">
+                {/* males */}
+                <div className="flex flex-col items-center justify-cente gap-1">
+                  <span className="text-xs text-gray-500 font-medium">
+                    Males
+                  </span>
+                  <h1 className="text- font-bold">{tallyStats.landbasedMales}</h1>
+                </div>
+
+                {/* females */}
+                <div className="flex flex-col items-center justify-cente gap-1">
+                  <span className="text-xs text-gray-500 font-medium">
+                    Females
+                  </span>
+                  <h1 className="text- font-bold">{tallyStats.landbasedFemales}</h1>
+                </div>
+              </div>
             </div>
 
-            {/* total females */}
-            <div className="rounded-2xl p-4 bg-orange-500 text-white flex flex-1 flex-col gap-1 border border-orange-300 shadow-sm">
-              <span className="text-orange-100 font-medium text-sm">
-                Total Females
-              </span>
-              <h1 className="text-3xl font-bold">{totalFemales}</h1>
+            {/* sea-based */}
+            <div className="rounded-2xl px-5 py-4 bg-white  flex flex-1 items-center justify-between gap-1 border border-gray-300">
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-sm text-gray-500">
+                  SEA-BASED OFWS
+                </span>
+                <h1 className="text-2xl font-bold">{tallyStats.totalSeabased}</h1>
+              </div>
+
+              <div className="flex items-center justify-center gap-6">
+                {/* males */}
+                <div className="flex flex-col items-center justify-cente gap-1">
+                  <span className="text-xs text-gray-500 font-medium">
+                    Males
+                  </span>
+                  <h1 className="text- font-bold">{tallyStats.seabasedMales}</h1>
+                </div>
+
+                {/* females */}
+                <div className="flex flex-col items-center justify-cente gap-1">
+                  <span className="text-xs text-gray-500 font-medium">
+                    Females
+                  </span>
+                  <h1 className="text- font-bold">{tallyStats.seabasedFemales}</h1>
+                </div>
+              </div>
             </div>
+            {/* most common purpose */}
+            {/* <div className="rounded-2xl px-5 py-4 bg-white  flex flex-1  justify-between gap-1 border border-gray-300">
+              <div className="flex flex-col gap-">
+                <span className="font-semibold text-sm text-gray-500">COMMON PURPOSE</span>
+                <h1 className="text-LG font-bold">OEC-EXEMPTION</h1>
+              </div>
+            </div> */}
           </div>
           {/* main tables */}
           <ClientDataTable
@@ -97,6 +213,7 @@ export default function ClientsLogs({
             dbPositions={dbPositions}
             selectedProvince={selectedProvince}
             setSelectedProvince={setSelectedProvince}
+            onTallyChange={updateTallyStats}
           />
         </div>
 

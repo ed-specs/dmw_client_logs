@@ -20,6 +20,21 @@ import { useState, useEffect } from "react";
 import { ProvincePlaces } from "../../../data/ProvincePlaces";
 
 const SURVEY = ["GOOD", "BAD"];
+const TYPE_OPTIONS = ["LANDBASED", "SEABASED"];
+
+const normalizeType = (type = "") => {
+  const upper = String(type).toUpperCase().trim();
+  if (upper === "LB" || upper === "LANDBASED") return "LANDBASED";
+  if (upper === "SB" || upper === "SEABASED") return "SEABASED";
+  return upper;
+};
+
+const getTypeAcronym = (type = "") => {
+  const normalized = normalizeType(type);
+  if (normalized === "LANDBASED") return "LB";
+  if (normalized === "SEABASED") return "SB";
+  return type;
+};
 
 const FILTER_OPTIONS = [
   {
@@ -44,7 +59,7 @@ const FILTER_OPTIONS = [
     placeholder: "Select Type",
     icon: Earth,
     colClass: "col-span-2",
-    options: ["LB", "SB"],
+    options: TYPE_OPTIONS,
   },
   {
     id: "position",
@@ -95,6 +110,7 @@ export default function ClientDataTable({
   dbPositions = [],
   selectedProvince,
   setSelectedProvince,
+  onTallyChange,
 }) {
   const [toggleFilter, setToggleFilter] = useState(false);
   const [modalState, setModalState] = useState({ isOpen: false, data: null });
@@ -204,6 +220,43 @@ export default function ClientDataTable({
     survey: [],
   });
   const [isFocused, setIsFocused] = useState(false);
+  const [dateFilterMode, setDateFilterMode] = useState("specific");
+  const [dateSpecific, setDateSpecific] = useState("");
+  const [dateYear, setDateYear] = useState("");
+  const [dateMonth, setDateMonth] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const MONTH_LABELS = {
+    "01": "January",
+    "02": "February",
+    "03": "March",
+    "04": "April",
+    "05": "May",
+    "06": "June",
+    "07": "July",
+    "08": "August",
+    "09": "September",
+    10: "October",
+    11: "November",
+    12: "December",
+  };
+  const availableYears = Array.from(
+    new Set(
+      localData
+        .map((log) => String(log.date || "").slice(0, 4))
+        .filter((year) => year.length === 4),
+    ),
+  ).sort((a, b) => Number(b) - Number(a));
+  const availableMonths = dateYear
+    ? Array.from(
+        new Set(
+          localData
+            .filter((log) => String(log.date || "").startsWith(`${dateYear}-`))
+            .map((log) => String(log.date || "").slice(5, 7))
+            .filter((month) => MONTH_LABELS[month]),
+        ),
+      ).sort((a, b) => Number(a) - Number(b))
+    : [];
 
   const dynamicFilterOptions = FILTER_OPTIONS.map((opt) => {
     if (opt.id === "jobsite")
@@ -213,7 +266,13 @@ export default function ClientDataTable({
     if (opt.id === "address") {
       let options = [];
       if (selectedProvince === "ALL CLIENTS") {
-        options = Array.from(new Set(data.filter(log => log.address).map(log => getDisplayAddress(log))));
+        options = Array.from(
+          new Set(
+            data
+              .filter((log) => log.address)
+              .map((log) => getDisplayAddress(log)),
+          ),
+        );
       } else if (selectedProvince === userRole) {
         const pObj = ProvincePlaces.find((p) => p.province === userRole);
         if (pObj) {
@@ -281,10 +340,18 @@ export default function ClientDataTable({
       log.nameOfOfw?.toLowerCase().startsWith(searchQuery.toLowerCase());
 
     // 2. Exact Value Filters
+    const logDate = String(log.date || "");
     const matchesDate =
-      selectedFilters.date?.length === 0 || !selectedFilters.date
-        ? true
-        : selectedFilters.date.includes(log.date);
+      dateFilterMode === "specific"
+        ? !dateSpecific || logDate === dateSpecific
+        : dateFilterMode === "year"
+          ? !dateYear || logDate.startsWith(`${dateYear}-`)
+          : dateFilterMode === "month"
+            ? !dateYear ||
+              !dateMonth ||
+              logDate.startsWith(`${dateYear}-${dateMonth}-`)
+            : (!dateFrom || logDate >= dateFrom) &&
+              (!dateTo || logDate <= dateTo);
     const matchesJobsite =
       selectedFilters.jobsite?.length === 0 || !selectedFilters.jobsite
         ? true
@@ -292,7 +359,7 @@ export default function ClientDataTable({
     const matchesType =
       selectedFilters.type?.length === 0 || !selectedFilters.type
         ? true
-        : selectedFilters.type.includes(log.type);
+        : selectedFilters.type.includes(normalizeType(log.type));
     const matchesPosition =
       selectedFilters.position?.length === 0 || !selectedFilters.position
         ? true
@@ -322,6 +389,53 @@ export default function ClientDataTable({
       matchesSurvey
     );
   });
+
+  const filteredLandbased = filteredData.filter(
+    (log) => normalizeType(log.type) === "LANDBASED",
+  );
+  const filteredSeabased = filteredData.filter(
+    (log) => normalizeType(log.type) === "SEABASED",
+  );
+  const filteredStats = {
+    totalClients: filteredData.length,
+    totalMales: filteredData.filter(
+      (log) => String(log.sex).toUpperCase() === "M",
+    ).length,
+    totalFemales: filteredData.filter((log) =>
+      ["F", "FEMALE"].includes(String(log.sex).toUpperCase()),
+    ).length,
+    totalLandbased: filteredLandbased.length,
+    landbasedMales: filteredLandbased.filter(
+      (log) => String(log.sex).toUpperCase() === "M",
+    ).length,
+    landbasedFemales: filteredLandbased.filter((log) =>
+      ["F", "FEMALE"].includes(String(log.sex).toUpperCase()),
+    ).length,
+    totalSeabased: filteredSeabased.length,
+    seabasedMales: filteredSeabased.filter(
+      (log) => String(log.sex).toUpperCase() === "M",
+    ).length,
+    seabasedFemales: filteredSeabased.filter((log) =>
+      ["F", "FEMALE"].includes(String(log.sex).toUpperCase()),
+    ).length,
+  };
+
+  useEffect(() => {
+    if (typeof onTallyChange === "function") {
+      onTallyChange(filteredStats);
+    }
+  }, [
+    onTallyChange,
+    filteredStats.totalClients,
+    filteredStats.totalMales,
+    filteredStats.totalFemales,
+    filteredStats.totalLandbased,
+    filteredStats.landbasedMales,
+    filteredStats.landbasedFemales,
+    filteredStats.totalSeabased,
+    filteredStats.seabasedMales,
+    filteredStats.seabasedFemales,
+  ]);
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (sortOrder === "default") return 0;
@@ -473,36 +587,154 @@ export default function ClientDataTable({
         </div>
         {/* toggle filter */}
         {toggleFilter && (
-          <div className="rounded-lg bg-white border border-gray-300 p-4 grid grid-cols-6 gap-3 z-20">
+          <div className="rounded-lg bg-white border border-gray-300 p-4 flex flex-wrap items-start gap-3 z-20">
+            
             {dynamicFilterOptions.map((filter) => {
               const Icon = filter.icon;
               return (
                 <div
                   key={filter.id}
-                  className={`${filter.colClass} flex flex-col gap-1 flex-1 relative`}
+                  className={`flex flex-col gap-1 relative ${
+                    filter.id === "date"
+                      ? "flex-[2_1_360px] min-w-[300px]"
+                      : "flex-[1_1_220px] min-w-[220px]"
+                  }`}
                 >
                   <span className="text-sm text-gray-500">{filter.label}</span>
                   {filter.id === "date" ? (
-                    <div className="relative flex items-center w-full">
-                      <Icon
-                        strokeWidth={1.5}
-                        className="w-4 h-4 absolute left-4 z-10 pointer-events-none"
-                      />
-                      <input
-                        type="date"
-                        value={selectedFilters[filter.id]?.[0] || ""}
-                        onChange={(e) =>
-                          setSelectedFilters((prev) => ({
-                            ...prev,
-                            [filter.id]: e.target.value ? [e.target.value] : [],
-                          }))
-                        }
-                        className="relative pl-10 pr-10 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer transition-colors w-full outline-none focus:border-blue-500 bg-transparent [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                      />
-                      <ChevronDown
-                        strokeWidth={1.5}
-                        className="w-5 h-5 absolute right-2 z-10 pointer-events-none"
-                      />
+                    <div className="flex flex-col gap-4">
+                      <div className="relative flex items-center w-full">
+                        <Icon
+                          strokeWidth={1.5}
+                          className="w-4 h-4 absolute left-4 z-10 pointer-events-none"
+                        />
+                        <select
+                          value={dateFilterMode}
+                          onChange={(e) => {
+                            setDateFilterMode(e.target.value);
+                            setDateSpecific("");
+                            setDateYear("");
+                            setDateMonth("");
+                            setDateFrom("");
+                            setDateTo("");
+                            setCurrentPage(1);
+                          }}
+                          className="relative pl-10 pr-4 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer transition-colors w-full outline-none focus:border-blue-500 bg-white"
+                        >
+                          <option value="specific">Specific Date</option>
+                          <option value="year">Per Year</option>
+                          <option value="month">Per Month</option>
+                          <option value="range">Day Range</option>
+                        </select>
+                      </div>
+
+                      {dateFilterMode === "specific" && (
+                        <input
+                          type="date"
+                          value={dateSpecific}
+                          onChange={(e) => {
+                            setDateSpecific(e.target.value);
+                            setCurrentPage(1);
+                          }}
+                          className="px-3 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer transition-colors w-full outline-none focus:border-blue-500 bg-white"
+                        />
+                      )}
+
+                      {dateFilterMode === "year" && (
+                        <select
+                          value={dateYear}
+                          onChange={(e) => {
+                            setDateYear(e.target.value);
+                            setDateMonth("");
+                            setCurrentPage(1);
+                          }}
+                          className="px-3 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer transition-colors w-full outline-none focus:border-blue-500 bg-white"
+                        >
+                          <option value="">Select year</option>
+                          {availableYears.map((year) => (
+                            <option key={year} value={year}>
+                              {year}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      {dateFilterMode === "month" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            value={dateYear}
+                            onChange={(e) => {
+                              setDateYear(e.target.value);
+                              setDateMonth("");
+                              setCurrentPage(1);
+                            }}
+                            className="px-3 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer transition-colors w-full outline-none focus:border-blue-500 bg-white"
+                          >
+                            <option value="">Select year</option>
+                            {availableYears.map((year) => (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={dateMonth}
+                            onChange={(e) => {
+                              setDateMonth(e.target.value);
+                              setCurrentPage(1);
+                            }}
+                            disabled={!dateYear}
+                            className="px-3 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer transition-colors w-full outline-none focus:border-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Select month</option>
+                            {availableMonths.map((month) => (
+                              <option key={month} value={month}>
+                                {MONTH_LABELS[month]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {dateFilterMode === "range" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex flex-col gap-1">
+                            <label
+                              htmlFor="date-from"
+                              className="text-xs text-gray-500"
+                            >
+                              From
+                            </label>
+                            <input
+                              type="date"
+                              value={dateFrom}
+                              onChange={(e) => {
+                                setDateFrom(e.target.value);
+                                setCurrentPage(1);
+                              }}
+                              className="px-3 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer transition-colors w-full outline-none focus:border-blue-500 bg-white"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-1">
+                            <label
+                              htmlFor="date-to"
+                              className="text-xs text-gray-500"
+                            >
+                              To
+                            </label>
+                            <input
+                              type="date"
+                              value={dateTo}
+                              onChange={(e) => {
+                                setDateTo(e.target.value);
+                                setCurrentPage(1);
+                              }}
+                              className="px-3 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer transition-colors w-full outline-none focus:border-blue-500 bg-white"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -652,7 +884,7 @@ export default function ClientDataTable({
                       {log.jobsite}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
-                      {log.type}
+                      {getTypeAcronym(log.type)}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
                       {log.position}
@@ -967,11 +1199,11 @@ export default function ClientDataTable({
                       name="type"
                       id="type"
                       required
-                      defaultValue={modalState.data?.type || ""}
+                      defaultValue={normalizeType(modalState.data?.type || "")}
                       className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
                     >
-                      <option value="LB">LB</option>
-                      <option value="SB">SB</option>
+                      <option value="LANDBASED">LANDBASED</option>
+                      <option value="SEABASED">SEABASED</option>
                     </select>
                   </div>
 

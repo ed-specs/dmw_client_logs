@@ -93,6 +93,8 @@ export default function ClientDataTable({
   userRole,
   dbJobsites = [],
   dbPositions = [],
+  selectedProvince,
+  setSelectedProvince,
 }) {
   const [toggleFilter, setToggleFilter] = useState(false);
   const [modalState, setModalState] = useState({ isOpen: false, data: null });
@@ -100,6 +102,22 @@ export default function ClientDataTable({
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [localData, setLocalData] = useState(data);
+
+  const MIMAROPA_PROVINCES = [
+    "ORIENTAL MINDORO",
+    "OCCIDENTAL MINDORO",
+    "MARINDUQUE",
+    "ROMBLON",
+    "PALAWAN",
+  ];
+
+  const getDisplayAddress = (client) => {
+    if (!client.province) return client.address;
+    if (!MIMAROPA_PROVINCES.includes(client.province.toUpperCase())) {
+      return `${client.address}, ${client.province}`;
+    }
+    return client.address;
+  };
 
   useEffect(() => {
     setLocalData(data);
@@ -194,9 +212,28 @@ export default function ClientDataTable({
       return { ...opt, options: [...dbPositions].sort() };
     if (opt.id === "address") {
       let options = [];
-      const pObj = ProvincePlaces.find((p) => p.province === userRole);
-      if (pObj) {
-        options = pObj.places.map((place) => `${place}, ${userRole}`);
+      if (selectedProvince === "ALL CLIENTS") {
+        options = Array.from(new Set(data.filter(log => log.address).map(log => getDisplayAddress(log))));
+      } else if (selectedProvince === userRole) {
+        const pObj = ProvincePlaces.find((p) => p.province === userRole);
+        if (pObj) {
+          options = pObj.places.map((place) => `${place}, ${userRole}`);
+        }
+      } else if (selectedProvince === "OTHER PROVINCE") {
+        const otherLogs = data.filter(
+          (log) =>
+            log.province &&
+            log.province !== userRole &&
+            MIMAROPA_PROVINCES.includes(log.province),
+        );
+        options = Array.from(new Set(otherLogs.map((log) => log.address)));
+      } else if (selectedProvince === "OUTSIDE MIMAROPA") {
+        const outsideLogs = data.filter(
+          (log) => log.province && !MIMAROPA_PROVINCES.includes(log.province),
+        );
+        options = Array.from(
+          new Set(outsideLogs.map((log) => `${log.address}, ${log.province}`)),
+        );
       }
       return { ...opt, options: options.sort() };
     }
@@ -221,6 +258,22 @@ export default function ClientDataTable({
   };
 
   const filteredData = localData.filter((log) => {
+    // 0. Region Scope Filter
+    let matchesRegion = true;
+    if (selectedProvince === "ALL CLIENTS") {
+      matchesRegion = true;
+    } else if (selectedProvince === userRole) {
+      matchesRegion = log.province === userRole;
+    } else if (selectedProvince === "OTHER PROVINCE") {
+      matchesRegion =
+        log.province &&
+        log.province !== userRole &&
+        MIMAROPA_PROVINCES.includes(log.province);
+    } else if (selectedProvince === "OUTSIDE MIMAROPA") {
+      matchesRegion =
+        log.province && !MIMAROPA_PROVINCES.includes(log.province);
+    }
+
     // 1. Search Query (startsWith for literal exact-prefix matching)
     const matchesSearch =
       searchQuery === "" ||
@@ -251,13 +304,14 @@ export default function ClientDataTable({
     const matchesAddress =
       selectedFilters.address?.length === 0 || !selectedFilters.address
         ? true
-        : selectedFilters.address.includes(log.address);
+        : selectedFilters.address.includes(getDisplayAddress(log));
     const matchesSurvey =
       selectedFilters.survey?.length === 0 || !selectedFilters.survey
         ? true
         : selectedFilters.survey.includes(log.survey);
 
     return (
+      matchesRegion &&
       matchesSearch &&
       matchesDate &&
       matchesJobsite &&
@@ -298,36 +352,55 @@ export default function ClientDataTable({
       <div className="flex flex-col gap-3 bg-white p-4 rounded-2xl border border-gray-300">
         {/* filter */}
         <div className="flex items-center justify-between">
-          {/* search bar */}
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              name="search"
-              id="search"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              onInput={() => setIsFocused(true)}
-              placeholder="Search client here..."
-              className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 w-96"
-            />
-
-            {isFocused && (
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setIsFocused(false);
+          <div className="flex items-center gap-4">
+            {/* search bar */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                name="search"
+                id="search"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
                 }}
-                className="px-4 py-2 text-sm rounded-lg flex items-center justify-center gap-2 border border-gray-300 hover:bg-gray-100 transition-colors duration-150 cursor-pointer"
-              >
-                Clear search
-              </button>
-            )}
+                onInput={() => setIsFocused(true)}
+                placeholder="Search client here..."
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 w-96"
+              />
+
+              {isFocused && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setIsFocused(false);
+                  }}
+                  className="px-4 py-2 text-sm rounded-lg flex items-center justify-center gap-2 border border-gray-300 hover:bg-gray-100 transition-colors duration-150 cursor-pointer"
+                >
+                  Clear search
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2 relative">
+            {/* Province Toggle / Navigation */}
+            <div className="flex">
+              <select
+                className="px-4 py-2 text-sm rounded-lg transition-colors duration-150 outline-none cursor-pointer border border-gray-300"
+                value={selectedProvince}
+                onChange={(e) => {
+                  setSelectedProvince(e.target.value);
+                  setSelectedFilters({ ...selectedFilters, address: [] });
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="ALL CLIENTS">ALL CLIENTS</option>
+                <option value={userRole}>{userRole}</option>
+                <option value="OTHER PROVINCE">OTHER PROVINCE</option>
+                <option value="OUTSIDE MIMAROPA">OUTSIDE MIMAROPA</option>
+              </select>
+            </div>
             <div className="relative">
               <button
                 onClick={() => {
@@ -565,9 +638,9 @@ export default function ClientDataTable({
                     </td>
                     <td
                       className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 max-w-xs truncate"
-                      title={log.address}
+                      title={getDisplayAddress(log)}
                     >
-                      {log.address}
+                      {getDisplayAddress(log)}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium">
                       {log.contactNo}

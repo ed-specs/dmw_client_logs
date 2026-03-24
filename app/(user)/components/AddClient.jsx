@@ -6,6 +6,14 @@ import Link from "next/link";
 import { addClientLog } from "../../actions/clientLogsActions";
 import { ProvincePlaces } from "../../data/ProvincePlaces";
 
+const PROVINCE = [
+  "ORIENTAL MINDORO",
+  "OCCIDENTAL MINDORO",
+  "MARINDUQUE",
+  "ROMBLON",
+  "PALAWAN",
+];
+
 const TYPE = ["LB", "SB"];
 
 const PURPOSE = [
@@ -41,6 +49,12 @@ export default function AddClient({
   const [errorMessage, setErrorMessage] = useState("");
   const [clientName, setClientName] = useState("");
   const [nameOfOfw, setNameOfOfw] = useState("");
+  const [activeProvince, setActiveProvince] = useState("");
+  const [isOutsideProvince, setIsOutsideProvince] = useState(false);
+  const [isOutsideMimaropa, setIsOutsideMimaropa] = useState(false);
+  const [isAddingJobsite, setIsAddingJobsite] = useState(false);
+  const [isAddingPosition, setIsAddingPosition] = useState(false);
+  const [hoverMessage, setHoverMessage] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,7 +76,7 @@ export default function AddClient({
       "survey",
     ];
     const isMissingData = requiredFields.some(
-      (field) => !data[field] || data[field].trim() === "",
+      (field) => !data[field] || data[field].trim() === ""
     );
 
     if (isMissingData) {
@@ -113,7 +127,7 @@ export default function AddClient({
 
       if (!result.success) {
         setErrorMessage(
-          result.error || "Failed to add client log! Please try again later.",
+          result.error || "Failed to add client log! Please try again later."
         );
         setStatus("error");
         setTimeout(() => setStatus("idle"), 6000);
@@ -163,6 +177,59 @@ export default function AddClient({
         noValidate
         className="flex flex-col gap-4 p-6 rounded-2xl border border-gray-300 bg-white"
       >
+        <div className="flex flex-col items-baseline gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOutsideProvince(!isOutsideProvince);
+                setIsOutsideMimaropa(false);
+                setActiveProvince("");
+                setHoverMessage(
+                  `Only applicable if the client is outside province of ${userRole}`
+                );
+              }}
+              className={`px-4 py-2 text-xs rounded-md border transition-colors duration-150 cursor-pointer ${
+                isOutsideProvince
+                  ? "bg-blue-500 text-white hover:bg-blue-600 border-blue-300"
+                  : "hover:bg-gray-100 border-gray-300"
+              }`}
+            >
+              CLIENT IS OUTSIDE THE PROVINCE
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsOutsideMimaropa(!isOutsideMimaropa);
+                setIsOutsideProvince(false);
+                setActiveProvince("");
+                setHoverMessage(
+                  "Only applicable if the client is outside MIMAROPA Region"
+                );
+              }}
+              className={`px-4 py-2 text-xs rounded-md border transition-colors duration-150 cursor-pointer ${
+                isOutsideMimaropa
+                  ? "bg-blue-500 text-white hover:bg-blue-600 border-blue-300"
+                  : "hover:bg-gray-100 border-gray-300"
+              }`}
+            >
+              CLIENT IS OUTSIDE MIMAROPA REGION
+            </button>
+          </div>
+          {isOutsideProvince && (
+            <span className="text-xs text-gray-500 h-4">
+              {hoverMessage ||
+                `Select the appropriate condition if the client is not from province of ${userRole}.`}
+            </span>
+          )}
+          {isOutsideMimaropa && (
+            <span className="text-xs text-gray-500 h-4">
+              {hoverMessage ||
+                `Select the appropriate condition if the client is not from MIMAROPA Region.`}
+            </span>
+          )}
+        </div>
+
         <fieldset
           disabled={status !== "idle"}
           className="border-none p-0 m-0 flex flex-col gap-4 disabled:opacity-50 disabled:pointer-events-none transition-opacity duration-200"
@@ -183,23 +250,32 @@ export default function AddClient({
                 className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
               />
             </div>
-            {/* province */}
+            {/* purpose */}
             <div className="col-span-2 flex flex-col gap-1">
-              <label htmlFor="" className="text-gray-500 text-sm font-medium">
-                PROVINCE
+              <label
+                htmlFor="purpose"
+                className="text-gray-500 text-sm font-medium"
+              >
+                PURPOSE
               </label>
               <select
-                name="province"
-                id="province"
-                disabled
-                value={userRole || ""}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none transition-colors duration-150 bg-gray-100 text-gray-600 font-medium cursor-not-allowed"
+                name="purpose"
+                id="purpose"
+                required
+                defaultValue=""
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
               >
-                <option value={userRole || ""}>
-                  {userRole || "Fetching..."}
+                <option value="" disabled>
+                  Select purpose
                 </option>
+                {PURPOSE.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
             </div>
+
             {/* client name */}
             <div className="col-span-2 flex flex-col gap-1">
               <label htmlFor="" className="text-gray-500 text-sm font-medium">
@@ -296,44 +372,6 @@ export default function AddClient({
               />
               <span className="text-xs text-gray-500">Optional</span>
             </div>
-            {/* jobsite */}
-            <div className="col-span-1 flex flex-col gap-1">
-              <label htmlFor="" className="text-gray-500 text-sm font-medium">
-                JOBSITE
-              </label>
-              <input
-                list="jobsites-list"
-                name="jobsite"
-                id="jobsite"
-                required
-                placeholder="Enter or select jobsite"
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
-              />
-              <datalist id="jobsites-list">
-                {allJobsites.map((opt) => (
-                  <option key={opt} value={opt} />
-                ))}
-              </datalist>
-            </div>
-            {/* position */}
-            <div className="col-span-2 flex flex-col gap-1">
-              <label htmlFor="" className="text-gray-500 text-sm font-medium">
-                POSITION
-              </label>
-              <input
-                list="positions-list"
-                name="position"
-                id="position"
-                required
-                placeholder="Enter or select position"
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
-              />
-              <datalist id="positions-list">
-                {allPositions.map((opt) => (
-                  <option key={opt} value={opt} />
-                ))}
-              </datalist>
-            </div>
             {/* type */}
             <div className="col-span-1 flex flex-col gap-1">
               <label htmlFor="" className="text-gray-500 text-sm font-medium">
@@ -356,6 +394,156 @@ export default function AddClient({
                 ))}
               </select>
             </div>
+            {/* jobsite */}
+            <div className="col-span-1 flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label htmlFor="" className="text-gray-500 text-sm font-medium">
+                  JOBSITE
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingJobsite(!isAddingJobsite)}
+                  className="text-xs text-blue-500 cursor-pointer hover:text-blue-600 hover:underline"
+                >
+                  {isAddingJobsite ? "Select Jobsite" : "Add Jobsite"}
+                </button>
+              </div>
+
+              {isAddingJobsite ? (
+                <>
+                  <input
+                    type="text"
+                    name="jobsite"
+                    id="jobsite"
+                    required
+                    placeholder="Enter new jobsite"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white"
+                  />
+                  <span className="text-xs text-gray-500">
+                    Do not use acronym.
+                  </span>
+                </>
+              ) : (
+                <select
+                  name="jobsite"
+                  id="jobsite"
+                  required
+                  defaultValue=""
+                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+                >
+                  <option value="" disabled>
+                    Select jobsite
+                  </option>
+                  {allJobsites.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {/* position */}
+            <div className="col-span-2 flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label htmlFor="" className="text-gray-500 text-sm font-medium">
+                  POSITION
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingPosition(!isAddingPosition)}
+                  className="text-xs text-blue-500 cursor-pointer hover:text-blue-600 hover:underline"
+                >
+                  {isAddingPosition ? "Select Position" : "Add Position"}
+                </button>
+              </div>
+
+              {isAddingPosition ? (
+                <>
+                  <input
+                    type="text"
+                    name="position"
+                    id="position"
+                    required
+                    placeholder="Enter new position"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white"
+                  />
+                  <span className="text-xs text-gray-500">
+                    Do not use acronym.
+                  </span>
+                </>
+              ) : (
+                <select
+                  name="position"
+                  id="position"
+                  required
+                  defaultValue=""
+                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+                >
+                  <option value="" disabled>
+                    Select position
+                  </option>
+                  {allPositions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* province */}
+            <div className="col-span-2 flex flex-col gap-1">
+              <label htmlFor="" className="text-gray-500 text-sm font-medium">
+                PROVINCE
+              </label>
+              {isOutsideMimaropa ? (
+                <>
+                  <input
+                    type="text"
+                    name="province"
+                    id="province"
+                    required
+                    value={activeProvince}
+                    onChange={(e) => setActiveProvince(e.target.value)}
+                    placeholder="Enter province"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white"
+                  />
+                  <span className="text-xs text-gray-500">
+                    e.g. Batangas City
+                  </span>
+                </>
+              ) : isOutsideProvince ? (
+                <select
+                  name="province"
+                  id="province"
+                  required
+                  value={activeProvince}
+                  onChange={(e) => setActiveProvince(e.target.value)}
+                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+                >
+                  <option value="" disabled>
+                    Select province
+                  </option>
+                  {PROVINCE.filter((p) => p !== userRole).map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  name="province"
+                  id="province"
+                  disabled
+                  value={userRole || ""}
+                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none transition-colors duration-150 bg-gray-100 text-gray-600 font-medium cursor-not-allowed"
+                >
+                  <option value={userRole || ""}>
+                    {userRole || "Fetching..."}
+                  </option>
+                </select>
+              )}
+            </div>
             {/* address */}
             <div className="col-span-4 flex flex-col gap-1">
               <label
@@ -364,52 +552,63 @@ export default function AddClient({
               >
                 ADDRESS
               </label>
-              <select
-                name="address"
-                id="address"
-                required
-                defaultValue=""
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
-              >
-                <option value="" disabled>
-                  Select City/Municipality
-                </option>
-                {userRole &&
-                  ProvincePlaces.find(
-                    (p) => p.province === userRole,
-                  )?.places.map((place) => (
-                    <option key={place} value={`${place}, ${userRole}`}>
-                      {place}
-                    </option>
-                  ))}
-              </select>
+              {isOutsideMimaropa ? (
+                <>
+                  <input
+                    type="text"
+                    name="address"
+                    id="address"
+                    required
+                    placeholder="Enter City / Municipality"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white"
+                  />
+                  <span className="text-xs text-gray-500">
+                    City / Municipality (e.g. San Pascual)
+                  </span>
+                </>
+              ) : isOutsideProvince ? (
+                <select
+                  name="address"
+                  id="address"
+                  required
+                  defaultValue=""
+                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+                >
+                  <option value="" disabled>
+                    Select City/Municipality
+                  </option>
+                  {activeProvince &&
+                    ProvincePlaces.find(
+                      (p) => p.province === activeProvince
+                    )?.places.map((place) => (
+                      <option key={place} value={`${place}, ${activeProvince}`}>
+                        {place}
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <select
+                  name="address"
+                  id="address"
+                  required
+                  defaultValue=""
+                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+                >
+                  <option value="" disabled>
+                    Select City/Municipality
+                  </option>
+                  {userRole &&
+                    ProvincePlaces.find(
+                      (p) => p.province === userRole
+                    )?.places.map((place) => (
+                      <option key={place} value={`${place}, ${userRole}`}>
+                        {place}
+                      </option>
+                    ))}
+                </select>
+              )}
             </div>
 
-            {/* purpose */}
-            <div className="col-span-2 flex flex-col gap-1">
-              <label
-                htmlFor="purpose"
-                className="text-gray-500 text-sm font-medium"
-              >
-                PURPOSE
-              </label>
-              <select
-                name="purpose"
-                id="purpose"
-                required
-                defaultValue=""
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
-              >
-                <option value="" disabled>
-                  Select purpose
-                </option>
-                {PURPOSE.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
             {/* survey */}
             <div className="col-span-1 flex flex-col gap-1">
               <label

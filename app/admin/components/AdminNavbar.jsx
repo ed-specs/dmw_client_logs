@@ -10,6 +10,7 @@ import {
   KeyRound,
   IdCardLanyard,
   LogOut,
+  Building2,
 } from "lucide-react";
 
 const MENU_SECTIONS = [
@@ -17,7 +18,16 @@ const MENU_SECTIONS = [
     title: "Menus",
     items: [
       { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-      { name: "Client Logs", href: "/admin/clients-logs", icon: BookOpenText },
+      {
+        name: "Client's Logs",
+        href: "/admin/clients-logs",
+        icon: BookOpenText,
+      },
+      {
+        name: "Jobsites & Positions",
+        href: "/admin/jobsites-positions",
+        icon: Building2,
+      },
     ],
   },
   {
@@ -44,11 +54,12 @@ export default function AdminNavbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.replace("/"); // redirect to login page
+    // Use window.location.href instead of router.replace to completely clear Next.js client router cache
+    window.location.href = "/";
   };
 
   return (
-    <div className="h-full w-80 bg-gray-900 text-white p-6 flex flex-col gap-8">
+    <div className="h-full w-80 bg-gray-900 text-white p-6 flex flex-col gap-8 sticky top-0">
       <div className="flex flex-col flex-1 gap-6">
         {/* DMW LOGO */}
         <div className="flex gap-3 items-center justify-center py-2">

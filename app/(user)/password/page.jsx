@@ -22,7 +22,7 @@ export default async function UserPasswordPage() {
     .single();
 
   return (
-    <main className="flex h-dvh ">
+    <main className="flex h-dvh overflow-y-auto">
       {/* sidebar */}
       <UserNavbar />
       {/* main */}

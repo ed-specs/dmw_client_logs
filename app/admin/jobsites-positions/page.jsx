@@ -1,12 +1,13 @@
 import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
 import AdminNavbar from "../components/AdminNavbar";
-import AdminChangePassword from "../components/AdmingChangePassword";
+import AdminJobsitesPositions from "../components/AdminJobsitesPositions";
 
-export default async function AdminChagePasswordPage() {
+export default async function AdminJobsitesPositionsPage() {
   const supabase = await createServerSupabase();
   const {
     data: { user },
@@ -23,7 +24,19 @@ export default async function AdminChagePasswordPage() {
     .eq("id", user.id)
     .single();
 
-  console.log("AdminChangePasswordPage Check:", {
+  // Initialize Admin Client to bypass RLS "View Own Profile" restrictions
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+
+  // Fetch all employees for table
+  const { data: employees } = await supabaseAdmin
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  console.log("AdminJobsitePosition Check:", {
     user_id: user?.id,
     profile,
     error,
@@ -41,7 +54,7 @@ export default async function AdminChagePasswordPage() {
       {/* sidebar */}
       <AdminNavbar />
       {/* main */}
-      <AdminChangePassword />
+      <AdminJobsitesPositions />
     </main>
   );
 }

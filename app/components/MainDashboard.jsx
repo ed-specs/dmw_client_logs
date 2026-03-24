@@ -34,7 +34,7 @@ export default function MainDashboard() {
   }, [selectedDate]);
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6 bg-gray-50">
+    <div className="flex flex-1 flex-col gap-6 p-4 bg-gray-50">
       {/* Main Header */}
       <div className="flex items-center justify-center">
         <div className="flex flex-col gap- ">

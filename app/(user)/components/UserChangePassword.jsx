@@ -121,7 +121,7 @@ export default function UserChangePassword() {
   };
 
   return (
-    <div className="flex flex-col flex-1 gap-4 p-6 bg-gray-50 h-full overflow-hidden">
+    <div className="flex flex-col flex-1 gap-4 p-4 bg-gray-50 h-full overflow-hidden">
       {/* header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold w-full">CHANGE PASSWORD</h1>

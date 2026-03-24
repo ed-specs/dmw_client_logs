@@ -14,7 +14,7 @@ const PROVINCE = [
   "PALAWAN",
 ];
 
-const TYPE = ["LB", "SB"];
+const TYPE = ["LANDBASED", "SEABASED"];
 
 const PURPOSE = [
   "OEC",
@@ -154,7 +154,7 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
   };
 
   return (
-    <div className="relative flex flex-col flex-1 gap-4 p-6 bg-gray-50">
+    <div className="relative flex flex-col flex-1 gap-4 p-4 bg-gray-50">
       {/* header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

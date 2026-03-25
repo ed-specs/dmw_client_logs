@@ -45,11 +45,13 @@ export default async function AdminAddClientPage() {
   const dbPositions = positionsData?.map((p) => p.name) || [];
 
   return (
-    <main className="flex h-dvh overflow-y-auto">
-      {/* sidebar */}
-      <AdminNavbar />
-      {/* main */}
-      <AdminAddClient dbJobsites={dbJobsites} dbPositions={dbPositions} />
+    <main className="flex h-dvh min-h-0 overflow-hidden bg-gray-50">
+      <div className="h-dvh shrink-0">
+        <AdminNavbar />
+      </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <AdminAddClient dbJobsites={dbJobsites} dbPositions={dbPositions} />
+      </div>
     </main>
   );
 }

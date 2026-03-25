@@ -22,11 +22,13 @@ export default async function UserPasswordPage() {
     .single();
 
   return (
-    <main className="flex h-dvh overflow-y-auto">
-      {/* sidebar */}
-      <UserNavbar />
-      {/* main */}
-      <UserChangePassword />
+    <main className="flex h-dvh min-h-0 overflow-hidden bg-gray-50">
+      <div className="h-dvh shrink-0">
+        <UserNavbar />
+      </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <UserChangePassword />
+      </div>
     </main>
   );
 }

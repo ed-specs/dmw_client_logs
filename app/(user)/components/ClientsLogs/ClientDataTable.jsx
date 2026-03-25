@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import { ProvincePlaces } from "../../../data/ProvincePlaces";
 
@@ -34,6 +35,28 @@ const getTypeAcronym = (type = "") => {
   if (normalized === "LANDBASED") return "LB";
   if (normalized === "SEABASED") return "SB";
   return type;
+};
+
+const INITIAL_FILTER_SELECTIONS = {
+  date: [],
+  jobsite: [],
+  type: [],
+  position: [],
+  purpose: [],
+  address: [],
+  survey: [],
+};
+
+const buildTypeSearchBlob = (rawType) => {
+  const norm = normalizeType(rawType);
+  const ac = getTypeAcronym(rawType);
+  if (norm === "LANDBASED") {
+    return `${norm} ${ac} landbased land-based lb`.toLowerCase();
+  }
+  if (norm === "SEABASED") {
+    return `${norm} ${ac} seabased sea-based sb`.toLowerCase();
+  }
+  return `${rawType} ${norm} ${ac}`.toLowerCase();
 };
 
 const FILTER_OPTIONS = [
@@ -112,6 +135,7 @@ export default function ClientDataTable({
   setSelectedProvince,
   onTallyChange,
 }) {
+  const router = useRouter();
   const [toggleFilter, setToggleFilter] = useState(false);
   const [modalState, setModalState] = useState({ isOpen: false, data: null });
   const [status, setStatus] = useState("idle");
@@ -138,6 +162,21 @@ export default function ClientDataTable({
   useEffect(() => {
     setLocalData(data);
   }, [data]);
+
+  useEffect(() => {
+    // Tab visible again (e.g. returned from another tab). Avoid window "focus":
+    // it fires often and causes router.refresh() + full tree re-fetch, which feels
+    // like constant re-rendering.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const interval = setInterval(() => router.refresh(), 60000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(interval);
+    };
+  }, [router]);
 
   const openEditModal = (log) => setModalState({ isOpen: true, data: log });
   const closeModal = () => setModalState({ isOpen: false, data: null });
@@ -211,13 +250,7 @@ export default function ClientDataTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilters, setSelectedFilters] = useState({
-    date: [],
-    jobsite: [],
-    type: [],
-    position: [],
-    purpose: [],
-    address: [],
-    survey: [],
+    ...INITIAL_FILTER_SELECTIONS,
   });
   const [isFocused, setIsFocused] = useState(false);
   const [dateFilterMode, setDateFilterMode] = useState("specific");
@@ -333,11 +366,18 @@ export default function ClientDataTable({
         log.province && !MIMAROPA_PROVINCES.includes(log.province);
     }
 
-    // 1. Search Query (startsWith for literal exact-prefix matching)
+    const q = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      searchQuery === "" ||
-      log.clientName?.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-      log.nameOfOfw?.toLowerCase().startsWith(searchQuery.toLowerCase());
+      !q ||
+      [
+        log.clientName,
+        log.nameOfOfw,
+        log.address,
+        getDisplayAddress(log),
+        log.position,
+        log.purpose,
+        buildTypeSearchBlob(log.type),
+      ].some((field) => field != null && String(field).toLowerCase().includes(q));
 
     // 2. Exact Value Filters
     const logDate = String(log.date || "");
@@ -463,7 +503,7 @@ export default function ClientDataTable({
 
   return (
     <div className="flex flex-col gap-2 flex-1">
-      <div className="flex flex-col gap-3 bg-white p-4 rounded-2xl border border-gray-300">
+      <div className="relative flex flex-col gap-3 bg-white p-4 rounded-2xl border border-gray-300">
         {/* filter */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -479,7 +519,7 @@ export default function ClientDataTable({
                   setCurrentPage(1);
                 }}
                 onInput={() => setIsFocused(true)}
-                placeholder="Search client here..."
+                placeholder="Search name, OFW, address, position, purpose, type..."
                 className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 w-96"
               />
 
@@ -586,9 +626,33 @@ export default function ClientDataTable({
           </div>
         </div>
         {/* toggle filter */}
-        {toggleFilter && (
-          <div className="rounded-lg bg-white border border-gray-300 p-4 flex flex-wrap items-start gap-3 z-20">
-            
+        <div
+          className={`absolute left-4 right-4 top-[calc(100%-2px)] rounded-lg bg-white border border-gray-300 p-4 z-20 shadow-xl origin-top transition-all duration-200 ${
+            toggleFilter
+              ? "opacity-100 scale-y-100 translate-y-2 pointer-events-auto"
+              : "opacity-0 scale-y-95 -translate-y-1 pointer-events-none"
+          }`}
+        >
+            <div className="mb-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFilters({ ...INITIAL_FILTER_SELECTIONS });
+                  setDateFilterMode("specific");
+                  setDateSpecific("");
+                  setDateYear("");
+                  setDateMonth("");
+                  setDateFrom("");
+                  setDateTo("");
+                  setActiveDropdown(null);
+                  setCurrentPage(1);
+                }}
+                className="text-sm rounded-md border border-gray-300 bg-white px-3 py-1.5 font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-50 cursor-pointer"
+              >
+                Reset filters
+              </button>
+            </div>
+            <div className="flex flex-wrap items-start gap-3">
             {dynamicFilterOptions.map((filter) => {
               const Icon = filter.icon;
               return (
@@ -788,8 +852,8 @@ export default function ClientDataTable({
                 </div>
               );
             })}
+            </div>
           </div>
-        )}
       </div>
 
       {/* tables */}

@@ -280,7 +280,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
 
       {/* main table and filters */}
       <div className="flex flex-col gap-2 flex-1 mt-2 min-h-0">
-        <div className="flex flex-col gap-3 bg-white p-4 rounded-2xl border border-gray-300">
+        <div className="relative flex flex-col gap-3 bg-white p-4 rounded-2xl border border-gray-300">
           {/* filter header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -309,7 +309,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
               )}
             </div>
 
-            <div className="flex gap-2 relative">
+            <div className="flex items-center gap-2 relative">
               <div className="relative">
                 <button
                   onClick={() => {
@@ -366,6 +366,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
                 onClick={() => {
                   setToggleFilter(!toggleFilter);
                   setToggleSort(false); // close sort if filter is opened
+                  setActiveDropdown(null);
                 }}
                 className="px-4 py-2 border text-sm border-gray-300 bg-white  rounded-lg flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150"
               >
@@ -380,8 +381,27 @@ export default function AdminManageEmployees({ initialData = [] }) {
           </div>
 
           {/* toggle filter */}
-          {toggleFilter && (
-            <div className="rounded-lg bg-white border border-gray-300 p-4 grid grid-cols-6 gap-3 z-20">
+          <div
+            className={`absolute left-4 right-4 top-[calc(100%-2px)] rounded-lg bg-white border border-gray-300 p-4 z-20 shadow-xl origin-top transition-all duration-200 ${
+              toggleFilter
+                ? "opacity-100 scale-y-100 translate-y-2 pointer-events-auto"
+                : "opacity-0 scale-y-95 -translate-y-1 pointer-events-none"
+            }`}
+          >
+            <div className="mb-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFilters({ role: [], status: [] });
+                  setActiveDropdown(null);
+                  setCurrentPage(1);
+                }}
+                className="text-sm rounded-md border border-gray-300 bg-white px-3 py-1.5 font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-50 cursor-pointer"
+              >
+                Reset filters
+              </button>
+            </div>
+            <div className="grid grid-cols-6 gap-3">
               {FILTER_OPTIONS.map((filter) => {
                 const Icon = filter.icon;
                 return (
@@ -439,7 +459,7 @@ export default function AdminManageEmployees({ initialData = [] }) {
                 );
               })}
             </div>
-          )}
+          </div>
         </div>
 
         {/* tables */}

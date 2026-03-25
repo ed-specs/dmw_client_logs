@@ -1,11 +1,12 @@
 import { createMiddlewareSupabase } from "./app/lib/supabaseMiddleware";
 
-export async function middleware(req) {
+export async function proxy(req) {
   const { supabase, res } = createMiddlewareSupabase(req);
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
   const pathname = req.nextUrl.pathname;
 
@@ -16,17 +17,17 @@ export async function middleware(req) {
 
   // Allow unauthenticated users only on the root (login) page.
   // This dynamically covers ALL new pages you add without needing to hardcode their names.
-  if (!session && pathname !== "/") {
+  if ((!user || authError) && pathname !== "/") {
     return Response.redirect(new URL("/", req.url));
   }
 
-  // If a session exists, check role for route protection
-  if (session) {
+  // If the user is authenticated, check role for route protection
+  if (user && !authError) {
     // Fetch profile role
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single();
 
     const role = profile?.role;

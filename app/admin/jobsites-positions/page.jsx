@@ -1,6 +1,5 @@
 import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -24,17 +23,15 @@ export default async function AdminJobsitesPositionsPage() {
     .eq("id", user.id)
     .single();
 
-  // Initialize Admin Client to bypass RLS "View Own Profile" restrictions
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-  );
+  const { data: clientLogs } = await supabase
+    .from("client_logs")
+    .select("id, date, province, jobsite, position, sex")
+    .order("date", { ascending: false });
 
-  // Fetch all employees for table
-  const { data: employees } = await supabaseAdmin
-    .from("profiles")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { data: jobsitesData } = await supabase.from("jobsites").select("name");
+  const { data: positionsData } = await supabase.from("positions").select("name");
+  const dbJobsites = jobsitesData?.map((j) => j.name) || [];
+  const dbPositions = positionsData?.map((p) => p.name) || [];
 
   console.log("AdminJobsitePosition Check:", {
     user_id: user?.id,
@@ -50,11 +47,17 @@ export default async function AdminJobsitesPositionsPage() {
   }
 
   return (
-    <main className="flex h-dvh overflow-y-auto">
-      {/* sidebar */}
-      <AdminNavbar />
-      {/* main */}
-      <AdminJobsitesPositions />
+    <main className="flex h-dvh min-h-0 overflow-hidden bg-gray-50">
+      <div className="h-dvh shrink-0">
+        <AdminNavbar />
+      </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <AdminJobsitesPositions
+          initialLogs={clientLogs || []}
+          dbJobsites={dbJobsites}
+          dbPositions={dbPositions}
+        />
+      </div>
     </main>
   );
 }

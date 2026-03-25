@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import AdminClientDataTable from "./AdminClientsLogs/AdminClientDataTable";
 
@@ -27,6 +27,8 @@ export default function AdminClientsLogs({
   initialData = [],
   dbJobsites = [],
   dbPositions = [],
+  recorderNameById = {},
+  assignedUsers = [],
 }) {
   const [selectedProvince, setSelectedProvince] = useState(PROVINCES[0]);
   const [toggleDropdown, setToggleDropdown] = useState(false);
@@ -78,7 +80,7 @@ export default function AdminClientsLogs({
     computeTallyStats(filteredData),
   );
 
-  const updateTallyStats = (nextStats) => {
+  const updateTallyStats = useCallback((nextStats) => {
     setTallyStats((prev) => {
       if (
         prev.totalClients === nextStats.totalClients &&
@@ -95,7 +97,7 @@ export default function AdminClientsLogs({
       }
       return nextStats;
     });
-  };
+  }, []);
 
   return (
     <div className="flex flex-col flex-1 gap-4 p-4 bg-gray-50">
@@ -243,6 +245,8 @@ export default function AdminClientsLogs({
             selectedProvince={selectedProvince}
             dbJobsites={dbJobsites}
             dbPositions={dbPositions}
+            recorderNameById={recorderNameById}
+            assignedUsers={assignedUsers}
             onTallyChange={updateTallyStats}
           />
         </div>

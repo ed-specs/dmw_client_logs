@@ -12,9 +12,10 @@ export default function AutoLogout() {
     let timeoutId;
 
     const logout = async () => {
-      // Check if there is an active session before attempting to sign out
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
         await supabase.auth.signOut();
         router.push("/");
       }

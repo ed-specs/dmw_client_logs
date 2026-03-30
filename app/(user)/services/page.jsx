@@ -1,15 +1,14 @@
 import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
 import UserNavbar from "../components/UserNavbar";
-import ClientsLogs from "../components/ClientsLogs";
-import {
-  getCatalogsCached,
-  getUserClientLogsCached,
-} from "../../lib/cachedReads";
+import AdminServices from "../../admin/components/AdminServices";
+import { getProfilesNameMapCached, getUserServicesLogsCached } from "../../lib/cachedReads";
 
-export default async function ClientsLogsPage() {
+export default async function UserServicesPage() {
   const supabase = await createServerSupabase();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -18,7 +17,6 @@ export default async function ClientsLogsPage() {
     redirect("/");
   }
 
-  // Fetch user's role
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -27,13 +25,12 @@ export default async function ClientsLogsPage() {
 
   const userRole = profile?.role || "UNKNOWN";
 
-  const [clientLogs, catalogs] = await Promise.all([
-    getUserClientLogsCached(user.id, userRole),
-    getCatalogsCached(),
+  const [initialLogs, profilesResult] = await Promise.all([
+    getUserServicesLogsCached(userRole),
+    getProfilesNameMapCached(),
   ]);
 
-  const dbJobsites = catalogs.dbJobsites || [];
-  const dbPositions = catalogs.dbPositions || [];
+  const recorderNameById = profilesResult.recorderNameById || {};
 
   return (
     <main className="flex h-dvh min-h-0 overflow-hidden bg-gray-50">
@@ -41,13 +38,14 @@ export default async function ClientsLogsPage() {
         <UserNavbar />
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        <ClientsLogs
-          initialData={clientLogs || []}
-          userRole={profile.role}
-          dbJobsites={dbJobsites}
-          dbPositions={dbPositions}
+        <AdminServices
+          variant="user"
+          fixedProvince={userRole}
+          initialLogs={initialLogs || []}
+          recorderNameById={recorderNameById}
         />
       </div>
     </main>
   );
 }
+

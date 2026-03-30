@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, CheckCircle, X } from "lucide-react";
 import Link from "next/link";
 import { addClientLog } from "../../actions/clientLogsActions";
 import { ProvincePlaces } from "../../data/ProvincePlaces";
+import { createClient } from "../../lib/supabaseClient";
+import { useValidation, ValidatedInput, showToasterError } from "../../hooks/useValidation";
+import { useToaster } from "../../hooks/useToaster";
+import Toaster from "../../components/Toaster";
 
 const PROVINCE = [
   "ORIENTAL MINDORO",
@@ -42,13 +46,66 @@ export default function AddClient({
   dbJobsites = [],
   dbPositions = [],
 }) {
-  const allJobsites = [...dbJobsites].sort();
-  const allPositions = [...dbPositions].sort();
+  const supabase = useMemo(() => createClient(), []);
+  const validation = useValidation();
 
-  const [status, setStatus] = useState("idle"); // 'idle' | 'submitting' | 'success' | 'error'
-  const [errorMessage, setErrorMessage] = useState("");
+  const normalizeNames = (names) =>
+    Array.from(
+      new Set(
+        (names || [])
+          .map((n) =>
+            String(n || "")
+              .trim()
+              .toUpperCase(),
+          )
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+
+  const [allJobsites, setAllJobsites] = useState(() =>
+    normalizeNames(dbJobsites),
+  );
+  const [allPositions, setAllPositions] = useState(() =>
+    normalizeNames(dbPositions),
+  );
+
+  useEffect(() => {
+    // Keep local catalog lists in sync with server-provided initial data.
+    setAllJobsites(normalizeNames(dbJobsites));
+    setAllPositions(normalizeNames(dbPositions));
+  }, [dbJobsites, dbPositions]);
+
+  // Realtime-ish catalog refresh so newly added jobsite/position appear quickly.
+  useEffect(() => {
+    const fetchCatalogs = async () => {
+      const [
+        { data: jobsitesData, error: jobsitesError },
+        { data: positionsData, error: positionsError },
+      ] = await Promise.all([
+        supabase.from("jobsites").select("name"),
+        supabase.from("positions").select("name"),
+      ]);
+
+      if (jobsitesError || positionsError) {
+        // Keep current catalog lists on transient failures.
+        return;
+      }
+
+      setAllJobsites(normalizeNames(jobsitesData?.map((r) => r.name) || []));
+      setAllPositions(normalizeNames(positionsData?.map((r) => r.name) || []));
+    };
+
+    fetchCatalogs();
+  }, [supabase]);
+
+  const [status, setStatus] = useState("idle"); // 'idle' | 'submitting'
   const [clientName, setClientName] = useState("");
   const [nameOfOfw, setNameOfOfw] = useState("");
+  const [clientType, setClientType] = useState("APPLICANT");
+  
+  // Toaster system
+  const { toasts, showSuccess, showError, removeToast } = useToaster();
+  const [clientTypeDetail, setClientTypeDetail] = useState("");
   const [activeProvince, setActiveProvince] = useState("");
   const [isOutsideProvince, setIsOutsideProvince] = useState(false);
   const [isOutsideMimaropa, setIsOutsideMimaropa] = useState(false);
@@ -58,7 +115,7 @@ export default function AddClient({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
@@ -67,6 +124,7 @@ export default function AddClient({
       "date",
       "clientName",
       "nameOfOfw",
+      "client_type",
       "sex",
       "jobsite",
       "type",
@@ -75,14 +133,29 @@ export default function AddClient({
       "purpose",
       "survey",
     ];
-    const isMissingData = requiredFields.some(
-      (field) => !data[field] || data[field].trim() === ""
-    );
 
-    if (isMissingData) {
-      setErrorMessage("Please fill-up all fields");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 3000);
+    const normalizedClientType = String(data.client_type || "")
+      .toUpperCase()
+      .trim();
+    if (["NEXT OF KIN", "OTHERS"].includes(normalizedClientType)) {
+      requiredFields.push("client_type_detail");
+    }
+    
+    // Validate each field
+    let hasValidationErrors = false;
+    for (const field of requiredFields) {
+      const value = data[field];
+      const isValid = validation.validateField(field, value, { required: true });
+      if (!isValid) {
+        hasValidationErrors = true;
+      }
+    }
+    
+    // Mark all required fields as touched and validate form
+    const isFormValid = validation.validateForm(data, requiredFields);
+    
+    if (hasValidationErrors || !isFormValid) {
+      showError("Please fill up all required fields correctly");
       return;
     }
 
@@ -99,22 +172,19 @@ export default function AddClient({
     };
 
     if (isAcronym(data.jobsite, allJobsites)) {
-      setErrorMessage("Jobsite must be a complete word, not an acronym.");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError("Jobsite must be a complete word, not an acronym.");
       return;
     }
 
     if (isAcronym(data.position, allPositions)) {
-      setErrorMessage("Position must be a complete word, not an acronym.");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError("Position must be a complete word, not an acronym.");
       return;
     }
 
-    // Capitalize all data properties before submitting to Database
+    // Convert all data properties to uppercase before submitting to Database (excluding email and password fields)
+    const fieldsToExclude = ['email', 'password', 'admin_password', 'admin_password_confirm', 'date'];
     for (const key in data) {
-      if (typeof data[key] === "string" && key !== "date") {
+      if (typeof data[key] === "string" && !fieldsToExclude.includes(key)) {
         data[key] = data[key].toUpperCase();
       }
     }
@@ -126,29 +196,53 @@ export default function AddClient({
       const result = await addClientLog(data);
 
       if (!result.success) {
-        setErrorMessage(
-          result.error || "Failed to add client log! Please try again later."
-        );
-        setStatus("error");
-        setTimeout(() => setStatus("idle"), 6000);
+        showError(result.error || "Failed to add client log! Please try again later.");
         return;
       }
 
-      setStatus("success");
+      showSuccess("Client log added successfully!");
+
+      const addedJobsite = String(data.jobsite || "")
+        .trim()
+        .toUpperCase();
+      const addedPosition = String(data.position || "")
+        .trim()
+        .toUpperCase();
+
+      // Immediately reflect any newly typed jobsite/position in this form's dropdowns.
+      if (addedJobsite) {
+        setAllJobsites((prev) =>
+          prev.includes(addedJobsite)
+            ? prev
+            : normalizeNames([...prev, addedJobsite]),
+        );
+      }
+      if (addedPosition) {
+        setAllPositions((prev) =>
+          prev.includes(addedPosition)
+            ? prev
+            : normalizeNames([...prev, addedPosition]),
+        );
+      }
+
       const submittedDate = data.date; // capture the date before clearing
+      const submittedProvince = data.province; // capture province explicitly
 
-      e.target.reset(); // clear form
-      e.target.date.value = submittedDate; // restore the date
-
+      // Reset form
+      e.target.reset();
       setClientName("");
       setNameOfOfw("");
+      setClientType("APPLICANT");
+      setClientTypeDetail("");
+      setActiveProvince("");
+      setIsOutsideProvince(false);
+      setIsOutsideMimaropa(false);
 
       // Hide success message automatically after 3 seconds
       setTimeout(() => setStatus("idle"), 3000);
     } catch (error) {
       console.error(error);
-      setErrorMessage("Failed to add client log! Please try again later.");
-      setStatus("error");
+      showError("Failed to add client log! Please try again later.");
 
       // Hide error message automatically after 3 seconds
       setTimeout(() => setStatus("idle"), 3000);
@@ -177,7 +271,7 @@ export default function AddClient({
         noValidate
         className="flex flex-col gap-4 p-6 rounded-2xl border border-gray-300 bg-white"
       >
-        <div className="flex flex-col items-baseline gap-2 mb-2">
+        <div className="flex flex-col items-baseline justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -186,7 +280,7 @@ export default function AddClient({
                 setIsOutsideMimaropa(false);
                 setActiveProvince("");
                 setHoverMessage(
-                  `Only applicable if the client is outside province of ${userRole}`
+                  `Only applicable if the client is outside province of ${userRole}`,
                 );
               }}
               className={`px-4 py-2 text-xs rounded-md border transition-colors duration-150 cursor-pointer ${
@@ -204,7 +298,7 @@ export default function AddClient({
                 setIsOutsideProvince(false);
                 setActiveProvince("");
                 setHoverMessage(
-                  "Only applicable if the client is outside MIMAROPA Region"
+                  "Only applicable if the client is outside MIMAROPA Region",
                 );
               }}
               className={`px-4 py-2 text-xs rounded-md border transition-colors duration-150 cursor-pointer ${
@@ -250,6 +344,142 @@ export default function AddClient({
                 className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
               />
             </div>
+            {/* client name */}
+            <div className="col-span-2 flex flex-col gap-1">
+              <label htmlFor="" className="text-gray-500 text-sm font-medium">
+                CLIENT NAME
+              </label>
+              <input
+                type="text"
+                name="clientName"
+                id="clientName"
+                required
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Enter client name"
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
+              />
+            </div>
+            {/* client type */}
+            <div className="col-span-1 flex flex-col gap-1">
+              <label
+                htmlFor="client_type"
+                className="text-gray-500 text-sm font-medium"
+              >
+                CLIENT TYPE
+              </label>
+              <select
+                name="client_type"
+                id="client_type"
+                required
+                value={clientType}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setClientType(next);
+                  if (next !== "NEXT OF KIN" && next !== "OTHERS") {
+                    setClientTypeDetail("");
+                  }
+                }}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+              >
+                <option value="APPLICANT">APPLICANT</option>
+                <option value="NEXT OF KIN">NEXT OF KIN</option>
+                <option value="OTHERS">OTHERS</option>
+              </select>
+
+              {clientType === "NEXT OF KIN" && (
+                <div className="flex flex-col gap-1 mt-1">
+                  <label
+                    htmlFor=""
+                    className="text-xs text-gray-500 font-medium"
+                  >
+                    RELATIONSHIP
+                  </label>
+                  <select
+                    name="client_type_detail"
+                    id="client_type_detail"
+                    required
+                    value={clientTypeDetail}
+                    onChange={(e) => setClientTypeDetail(e.target.value)}
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+                  >
+                    <option value="" disabled>
+                      Select relation
+                    </option>
+                    <option value="MOTHER">MOTHER</option>
+                    <option value="FATHER">FATHER</option>
+                    <option value="SPOUSE">SPOUSE</option>
+                    <option value="CHILDREN">CHILDREN</option>
+                    <option value="SIBLING">SIBLING</option>
+                    <option value="GUARDIAN">GUARDIAN</option>
+                    <option value="OTHER">OTHER</option>
+                  </select>
+                </div>
+              )}
+
+              {clientType === "OTHERS" && (
+                <div className="flex flex-col gap-1 mt-1">
+                  <label
+                    htmlFor=""
+                    className="text-xs text-gray-500 font-medium"
+                  >
+                    SPECIFY CLIENT TYPE
+                  </label>
+
+                  <input
+                    type="text"
+                    name="client_type_detail"
+                    id="client_type_detail"
+                    required
+                    value={clientTypeDetail}
+                    onChange={(e) => setClientTypeDetail(e.target.value)}
+                    placeholder="Enter other client type"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
+                  />
+                </div>
+              )}
+            </div>
+            {/* name of ofw */}
+            <div className="col-span-2 flex flex-col gap-1">
+              <ValidatedInput
+                type="text"
+                name="nameOfOfw"
+                label="NAME OF OFW"
+                value={nameOfOfw}
+                onChange={(e) => setNameOfOfw(e.target.value)}
+                placeholder="Enter name of ofw"
+                required={true}
+                disabled={status !== "idle"}
+                validationHook={validation}
+                validationOptions={{ rule: 'name' }}
+              />
+              {clientName.trim().length > 0 && (
+                <div className="flex items-center justify-end mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setNameOfOfw(clientName)}
+                    className="text-xs text-blue-500 hover:underline cursor-pointer"
+                  >
+                    Same with client name
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* contact no */}
+            <div className="col-span-1 flex flex-col gap-1">
+              <label htmlFor="" className="text-gray-500 text-sm font-medium">
+                CONTACT NO
+              </label>
+              <input
+                type="text"
+                name="contactNo"
+                id="contactNo"
+                placeholder="Enter contact no."
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
+              />
+              <span className="text-xs text-gray-500">Optional</span>
+            </div>
+
             {/* purpose */}
             <div className="col-span-2 flex flex-col gap-1">
               <label
@@ -276,49 +506,6 @@ export default function AddClient({
               </select>
             </div>
 
-            {/* client name */}
-            <div className="col-span-2 flex flex-col gap-1">
-              <label htmlFor="" className="text-gray-500 text-sm font-medium">
-                CLIENT NAME
-              </label>
-              <input
-                type="text"
-                name="clientName"
-                id="clientName"
-                required
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                placeholder="Enter client name"
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
-              />
-            </div>
-            {/* name of ofw */}
-            <div className="col-span-2 flex flex-col gap-1">
-              <label htmlFor="" className="text-gray-500 text-sm font-medium">
-                NAME OF OFW
-              </label>
-              <input
-                type="text"
-                name="nameOfOfw"
-                id="nameOfOfw"
-                required
-                value={nameOfOfw}
-                onChange={(e) => setNameOfOfw(e.target.value)}
-                placeholder="Enter name of ofw"
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
-              />
-              {clientName.trim().length > 0 && (
-                <div className="flex items-center justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setNameOfOfw(clientName)}
-                    className="text-xs text-blue-500 hover:underline cursor-pointer"
-                  >
-                    Same with client name
-                  </button>
-                </div>
-              )}
-            </div>
             {/* age */}
             <div className="col-span-1 flex flex-col gap-1">
               <label htmlFor="" className="text-gray-500 text-sm font-medium">
@@ -358,20 +545,7 @@ export default function AddClient({
                 ))}
               </select>
             </div>
-            {/* contact no */}
-            <div className="col-span-1 flex flex-col gap-1">
-              <label htmlFor="" className="text-gray-500 text-sm font-medium">
-                CONTACT NO
-              </label>
-              <input
-                type="text"
-                name="contactNo"
-                id="contactNo"
-                placeholder="Enter contact no."
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
-              />
-              <span className="text-xs text-gray-500">Optional</span>
-            </div>
+            
             {/* type */}
             <div className="col-span-1 flex flex-col gap-1">
               <label htmlFor="" className="text-gray-500 text-sm font-medium">
@@ -443,7 +617,7 @@ export default function AddClient({
               )}
             </div>
             {/* position */}
-            <div className="col-span-2 flex flex-col gap-1">
+            <div className="col-span-1 flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <label htmlFor="" className="text-gray-500 text-sm font-medium">
                   POSITION
@@ -490,9 +664,8 @@ export default function AddClient({
                 </select>
               )}
             </div>
-
             {/* province */}
-            <div className="col-span-2 flex flex-col gap-1">
+            <div className="col-span-3 flex flex-col gap-1">
               <label htmlFor="" className="text-gray-500 text-sm font-medium">
                 PROVINCE
               </label>
@@ -545,7 +718,7 @@ export default function AddClient({
               )}
             </div>
             {/* address */}
-            <div className="col-span-4 flex flex-col gap-1">
+            <div className="col-span-3 flex flex-col gap-1">
               <label
                 htmlFor="address"
                 className="text-gray-500 text-sm font-medium"
@@ -579,7 +752,7 @@ export default function AddClient({
                   </option>
                   {activeProvince &&
                     ProvincePlaces.find(
-                      (p) => p.province === activeProvince
+                      (p) => p.province === activeProvince,
                     )?.places.map((place) => (
                       <option key={place} value={`${place}, ${activeProvince}`}>
                         {place}
@@ -599,7 +772,7 @@ export default function AddClient({
                   </option>
                   {userRole &&
                     ProvincePlaces.find(
-                      (p) => p.province === userRole
+                      (p) => p.province === userRole,
                     )?.places.map((place) => (
                       <option key={place} value={`${place}, ${userRole}`}>
                         {place}
@@ -634,13 +807,14 @@ export default function AddClient({
                 ))}
               </select>
             </div>
+            
           </div>
 
           {/* submit button */}
           <div className="flex items-center justify-end">
             <button
               type="submit"
-              disabled={status === "submitting"}
+              disabled={status === "submitting" || validation.hasFormErrors()}
               className="px-4 py-2 text-sm rounded-lg border border-blue-300 bg-blue-500 text-white cursor-pointer hover:bg-blue-600 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {status === "submitting" ? "Submitting..." : "Submit"}
@@ -649,28 +823,8 @@ export default function AddClient({
         </fieldset>
       </form>
 
-      {/* success message */}
-      <div
-        className={`fixed top-4 right-4 p-4 z-50 bg-green-500 text-white rounded-2xl flex items-center gap-2 shadow-lg transition-all duration-300 transform ${
-          status === "success"
-            ? "translate-y-0 opacity-100"
-            : "-translate-y-10 opacity-0 pointer-events-none"
-        }`}
-      >
-        <CheckCircle strokeWidth={1.5} className="w-5 h-5" />
-        Client log added successfully!
-      </div>
-      {/* error message */}
-      <div
-        className={`fixed top-4 right-4 p-4 z-50 bg-red-500 text-white rounded-2xl flex items-center gap-2 shadow-lg transition-all duration-300 transform ${
-          status === "error"
-            ? "translate-y-0 opacity-100"
-            : "-translate-y-10 opacity-0 pointer-events-none"
-        }`}
-      >
-        <X strokeWidth={1.5} className="w-5 h-5" />
-        {errorMessage}
-      </div>
+      {/* Toaster Component */}
+      <Toaster toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

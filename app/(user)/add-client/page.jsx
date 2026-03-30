@@ -42,6 +42,7 @@ export default async function AddClientPage() {
           dbPositions={dbPositions}
         />
       </div>
+      
     </main>
   );
 }

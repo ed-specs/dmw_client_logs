@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X, CheckCircle } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "../../lib/supabaseClient";
+import { useToaster } from "../../hooks/useToaster";
+import Toaster from "../../components/Toaster";
+import { setPresenceOffline } from "../../actions/presenceActions";
 
 export default function UserChangePassword() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -11,10 +14,11 @@ export default function UserChangePassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [status, setStatus] = useState("idle"); // 'idle' | 'success' | 'error'
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  
+  // Toaster system
+  const { toasts, showSuccess, showError, removeToast } = useToaster();
 
   const supabase = createClient();
 
@@ -43,23 +47,17 @@ export default function UserChangePassword() {
     e.preventDefault();
 
     if (!currentPassword) {
-      setErrorMessage("Please enter your current password.");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError("Please enter your current password.");
       return;
     }
 
     if (criteriaCount < 5) {
-      setErrorMessage("New password does not meet all security requirements.");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError("New password does not meet all security requirements.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setErrorMessage("New passwords do not match.");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError("New passwords do not match.");
       return;
     }
 
@@ -72,11 +70,7 @@ export default function UserChangePassword() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      setErrorMessage(
-        "Failed to get current user session. Please log in again.",
-      );
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError("Failed to get current user session. Please log in again.");
       setLoading(false);
       return;
     }
@@ -88,9 +82,7 @@ export default function UserChangePassword() {
     });
 
     if (signInError) {
-      setErrorMessage("Current password is incorrect.");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError("Current password is incorrect.");
       setLoading(false);
       return;
     }
@@ -101,16 +93,17 @@ export default function UserChangePassword() {
     });
 
     if (updateError) {
-      setErrorMessage(updateError.message);
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError(updateError.message);
     } else {
-      setSuccessMessage("Password successfully changed! Logging out...");
-      setStatus("success");
+      showSuccess("Password successfully changed! Logging out...");
       setTimeout(async () => {
-        setStatus("idle");
+        try {
+          await setPresenceOffline();
+        } catch {
+          // ignore
+        }
         await supabase.auth.signOut();
-        router.push("/");
+        router.replace("/");
       }, 6000);
       setCurrentPassword("");
       setNewPassword("");
@@ -142,6 +135,7 @@ export default function UserChangePassword() {
               id="currentPassword"
               name="currentPassword"
               value={currentPassword}
+              placeholder="Enter current password"
               onChange={(e) => setCurrentPassword(e.target.value)}
               className="px-4 py-2 rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
             />
@@ -155,6 +149,7 @@ export default function UserChangePassword() {
               id="newPassword"
               name="newPassword"
               value={newPassword}
+              placeholder="Enter new password"
               onChange={(e) => setNewPassword(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
@@ -279,6 +274,7 @@ export default function UserChangePassword() {
               id="confirmPassword"
               name="confirmPassword"
               value={confirmPassword}
+              placeholder="Enter confirm password"
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="px-4 py-2 rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
             />
@@ -293,23 +289,8 @@ export default function UserChangePassword() {
         </form>
       </div>
 
-      {/* success message toast */}
-      <div
-        className={`fixed top-4 right-4 p-4 z-60 bg-green-500 text-white rounded-2xl flex items-center gap-2 shadow-lg transition-all duration-300 transform max-w-sm ${status === "success" ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0 pointer-events-none"}`}
-      >
-        <CheckCircle strokeWidth={1.5} className="w-5 h-5 shrink-0" />
-        <span className="text-sm font-medium leading-tight">
-          {successMessage}
-        </span>
-      </div>
-
-      {/* error message toast */}
-      <div
-        className={`fixed top-4 right-4 p-4 z-60 bg-red-500 text-white rounded-2xl flex items-center gap-2 shadow-lg transition-all duration-300 transform ${status === "error" ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0 pointer-events-none"}`}
-      >
-        <X strokeWidth={1.5} className="w-5 h-5" />
-        {errorMessage}
-      </div>
+      {/* Toaster Component */}
+      <Toaster toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

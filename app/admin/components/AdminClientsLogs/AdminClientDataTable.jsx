@@ -19,9 +19,66 @@ import {
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ProvincePlaces } from "../../../data/ProvincePlaces";
+import { revalidateClientLogs } from "../../../actions/cacheActions";
 
 const SURVEY = ["GOOD", "BAD"];
 const TYPE_OPTIONS = ["LANDBASED", "SEABASED"];
+
+const PURPOSE_OPTIONS = [
+  "OEC",
+  "OEC-EXEMPTION",
+  "PEOS",
+  "INFOSHEET",
+  "DIRECT HIRE",
+  "G2G",
+  "AKSYON",
+  "SPIMS",
+  "LPOR",
+  "BPBH",
+  "BALIK PINAY-BALIK HANAPBUHAY",
+  "LDAP",
+  "CONCILIATION-MEDIATION",
+  "LEGAL ADVISE",
+  "END OF SERVICE BENEFIT CLAIMS",
+];
+
+const PROCESSING_SERVICES_PURPOSES = new Set();
+const REINTEGRATION_PURPOSES = new Set([
+  "PEOS",
+  "AKSYON",
+  "SPIMS",
+  "LPOR",
+  "BPBH",
+  "BALIK PINAY-BALIK HANAPBUHAY",
+]);
+const LEGAL_ASSISTANCE_PURPOSES = new Set([
+  "LDAP",
+  "CONCILIATION-MEDIATION",
+  "LEGAL ADVISE",
+  "END OF SERVICE BENEFIT CLAIMS",
+]);
+
+for (const p of PURPOSE_OPTIONS) {
+  if (!REINTEGRATION_PURPOSES.has(p) && !LEGAL_ASSISTANCE_PURPOSES.has(p)) {
+    PROCESSING_SERVICES_PURPOSES.add(p);
+  }
+}
+
+const SERVICE_TYPE_OPTIONS = [
+  "PROCESSING SERVICES",
+  "REINTEGRATION SERVICES",
+  "LEGAL ASSISTANCE SERVICES",
+];
+
+const normalizePurpose = (purpose = "") =>
+  String(purpose || "").toUpperCase().trim();
+
+const getServiceTypeOptionForPurpose = (purpose = "") => {
+  const u = normalizePurpose(purpose);
+  if (LEGAL_ASSISTANCE_PURPOSES.has(u)) return "LEGAL ASSISTANCE SERVICES";
+  if (REINTEGRATION_PURPOSES.has(u)) return "REINTEGRATION SERVICES";
+  return "PROCESSING SERVICES";
+};
 
 const normalizeType = (type = "") => {
   const upper = String(type).toUpperCase().trim();
@@ -42,9 +99,9 @@ const INITIAL_FILTER_SELECTIONS = {
   jobsite: [],
   type: [],
   position: [],
+  service_type: [],
   purpose: [],
   address: [],
-  survey: [],
 };
 
 const buildTypeSearchBlob = (rawType) => {
@@ -74,10 +131,15 @@ const getDisplayAddress = (log) => {
   return `${log.address}, ${log.province}`;
 };
 
-const getRecorderLabel = (userId, nameMap) => {
-  if (userId == null || userId === "") return "—";
-  const label = nameMap[userId];
-  return label != null && String(label).trim() !== "" ? label : "—";
+const getClientTypeDisplay = (log) => {
+  const type = String(log.client_type || "").toUpperCase().trim();
+  const detail = String(log.client_type_detail || "").trim();
+
+  if (!type) return "APPLICANT";
+  if (detail && (type === "NEXT OF KIN" || type === "OTHERS")) {
+    return `${type}: ${detail}`;
+  }
+  return type;
 };
 
 const FILTER_OPTIONS = [
@@ -119,30 +181,15 @@ const FILTER_OPTIONS = [
     placeholder: "Select Purpose",
     icon: FileText,
     colClass: "col-span-2",
-    options: [
-      "OEC",
-      "OEC-EXEMPTION",
-      "PEOS",
-      "INFOSHEET",
-      "DIRECT HIRE",
-      "G2G",
-      "AKSYON",
-      "SPIMS",
-      "LPOR",
-      "BPBH",
-      "LDAP",
-      "CONCILIATION-MEDIATION",
-      "LEGAL ADVISE",
-      "END OF SERVICE BENEFIT CLAIMS",
-    ],
+    options: PURPOSE_OPTIONS,
   },
   {
-    id: "survey",
-    label: "Survey",
-    placeholder: "Select Survey",
+    id: "service_type",
+    label: "Service Type",
+    placeholder: "Select Service Type",
     icon: FileText,
     colClass: "col-span-2",
-    options: SURVEY,
+    options: SERVICE_TYPE_OPTIONS,
   },
   {
     id: "address",
@@ -170,25 +217,24 @@ export default function AdminClientDataTable({
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [localData, setLocalData] = useState(data);
+  const [editClientType, setEditClientType] = useState("APPLICANT");
+  const [editClientTypeDetail, setEditClientTypeDetail] = useState("");
 
   useEffect(() => {
     setLocalData(data);
   }, [data]);
 
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === "visible") router.refresh();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    const interval = setInterval(() => router.refresh(), 60000);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(interval);
-    };
-  }, [router]);
-
-  const openEditModal = (log) => setModalState({ isOpen: true, data: log });
-  const closeModal = () => setModalState({ isOpen: false, data: null });
+  const openEditModal = (log) => {
+    const ct = String(log?.client_type || "APPLICANT").toUpperCase().trim();
+    setEditClientType(ct || "APPLICANT");
+    setEditClientTypeDetail(String(log?.client_type_detail || "").trim());
+    setModalState({ isOpen: true, data: log });
+  };
+  const closeModal = () => {
+    setModalState({ isOpen: false, data: null });
+    setEditClientType("APPLICANT");
+    setEditClientTypeDetail("");
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -196,8 +242,13 @@ export default function AdminClientDataTable({
     const formData = new FormData(e.target);
     const formDataObj = Object.fromEntries(formData.entries());
 
+    const normalizedClientType = String(
+      formDataObj.client_type || "",
+    ).toUpperCase().trim();
+
     const requiredFields = [
       "clientName",
+      "client_type",
       "nameOfOfw",
       "age",
       "sex",
@@ -208,6 +259,10 @@ export default function AdminClientDataTable({
       "purpose",
       "survey",
     ];
+
+    if (["NEXT OF KIN", "OTHERS"].includes(normalizedClientType)) {
+      requiredFields.push("client_type_detail");
+    }
     const isMissingData = requiredFields.some(
       (field) => !formDataObj[field] || formDataObj[field].trim() === "",
     );
@@ -268,7 +323,6 @@ export default function AdminClientDataTable({
   const [dateMonth, setDateMonth] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [selectedRecorderId, setSelectedRecorderId] = useState("");
   const MONTH_LABELS = {
     "01": "January",
     "02": "February",
@@ -306,6 +360,16 @@ export default function AdminClientDataTable({
       return { ...opt, options: [...dbJobsites].sort() };
     if (opt.id === "position")
       return { ...opt, options: [...dbPositions].sort() };
+    if (opt.id === "purpose") {
+      const selectedServiceTypes = selectedFilters.service_type || [];
+      if (!selectedServiceTypes.length) {
+        return { ...opt, options: PURPOSE_OPTIONS };
+      }
+      const options = PURPOSE_OPTIONS.filter((p) =>
+        selectedServiceTypes.includes(getServiceTypeOptionForPurpose(p)),
+      );
+      return { ...opt, options };
+    }
     if (opt.id === "address") {
       let options = [];
       if (selectedProvince === "MIMAROPA REGION") {
@@ -361,21 +425,18 @@ export default function AdminClientDataTable({
 
   const filteredData = localData.filter((log) => {
     const q = searchQuery.trim().toLowerCase();
-    const recorderLabel = getRecorderLabel(
-      log.created_by,
-      recorderNameById,
-    );
     const matchesSearch =
       !q ||
       [
         log.clientName,
+        log.client_type,
+        log.client_type_detail,
         log.nameOfOfw,
         log.address,
         getDisplayAddress(log),
         log.position,
         log.purpose,
         buildTypeSearchBlob(log.type),
-        recorderLabel,
       ].some((field) => field != null && String(field).toLowerCase().includes(q));
 
     // 2. Exact Value Filters
@@ -407,16 +468,17 @@ export default function AdminClientDataTable({
       selectedFilters.purpose?.length === 0 || !selectedFilters.purpose
         ? true
         : selectedFilters.purpose.includes(log.purpose);
+
+    const matchesServiceType =
+      selectedFilters.service_type?.length === 0 || !selectedFilters.service_type
+        ? true
+        : selectedFilters.service_type.includes(
+            getServiceTypeOptionForPurpose(log.purpose),
+          );
     const matchesAddress =
       selectedFilters.address?.length === 0 || !selectedFilters.address
         ? true
         : selectedFilters.address.includes(getDisplayAddress(log));
-    const matchesSurvey =
-      selectedFilters.survey?.length === 0 || !selectedFilters.survey
-        ? true
-        : selectedFilters.survey.includes(log.survey);
-    const matchesRecorder =
-      !selectedRecorderId || log.created_by === selectedRecorderId;
 
     return (
       matchesSearch &&
@@ -425,9 +487,9 @@ export default function AdminClientDataTable({
       matchesType &&
       matchesPosition &&
       matchesPurpose &&
+      matchesServiceType &&
       matchesAddress &&
-      matchesSurvey &&
-      matchesRecorder
+      true
     );
   });
 
@@ -508,6 +570,16 @@ export default function AdminClientDataTable({
         <div className="flex items-center justify-between">
           {/* search bar */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await revalidateClientLogs();
+                router.refresh();
+              }}
+              className="px-4 py-2 text-sm rounded-lg flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+            >
+              Refresh Table
+            </button>
             <input
               type="text"
               name="search"
@@ -535,29 +607,6 @@ export default function AdminClientDataTable({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2 relative">
-            <div className="relative flex items-center gap-2">
-              {/* <User
-                strokeWidth={1.5}
-                className="w-4 h-4 text-gray-500 shrink-0"
-              /> */}
-              <select
-                id="filter-logged-by"
-                value={selectedRecorderId}
-                onChange={(e) => {
-                  setSelectedRecorderId(e.target.value);
-                  setCurrentPage(1);
-                }}
-                aria-label="Filter by person who logged the record"
-                className="min-w-[200px] max-w-[260px] pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-300 bg-white outline-none hover:bg-gray-100 transition-colors duration-150 cursor-pointer truncate"
-              >
-                <option value="">ALL LOGS</option>
-                {assignedUsers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="relative">
               <button
                 onClick={() => {
@@ -663,8 +712,8 @@ export default function AdminClientDataTable({
                   key={filter.id}
                   className={`flex flex-col gap-1 relative ${
                     filter.id === "date"
-                      ? "flex-[2_1_360px] min-w-[300px]"
-                      : "flex-[1_1_220px] min-w-[220px]"
+                      ? "flex-[2_1_360px] min-w-75"
+                      : "flex-[1_1_220px] min-w-55"
                   }`}
                 >
                   <span className="text-sm text-gray-500">{filter.label}</span>
@@ -869,10 +918,16 @@ export default function AdminClientDataTable({
                   NO.
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  DATE
+                  CLIENT NAME
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  CLIENT NAME
+                  CLIENT TYPE
+                </th>
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
+                  OFW NAME
+                </th>
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
+                  PURPOSE
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200 text-center">
                   AGE
@@ -881,31 +936,22 @@ export default function AdminClientDataTable({
                   SEX
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  ADDRESS
-                </th>
-                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   CONTACT NO.
-                </th>
-                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  NAME OF OFW
-                </th>
-                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  JOBSITE
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   TYPE
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
+                  JOBSITE
+                </th>
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   POSITION
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  PURPOSE
+                  ADDRESS
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   SURVEY
-                </th>
-                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider text-center">
-                  LOGGED BY
                 </th>
               </tr>
             </thead>
@@ -920,17 +966,17 @@ export default function AdminClientDataTable({
                     <td className="px-2 py-2.5 text-xs text-gray-500 border-r border-gray-200 text-center">
                       {startIndex + index + 1}
                     </td>
-                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium whitespace-nowrap">
-                      {log.date
-                        ? new Date(log.date).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })
-                        : "N/A"}
-                    </td>
                     <td className="px-2 py-2.5 text-xs text-gray-900 border-r border-gray-200 font-semibold whitespace-nowrap">
                       {log.clientName}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 text-center whitespace-nowrap">
+                      {getClientTypeDisplay(log)}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
+                      {log.nameOfOfw}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
+                      {log.purpose}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 text-center">
                       {log.age}
@@ -939,44 +985,34 @@ export default function AdminClientDataTable({
                       {log.sex}
                     </td>
                     <td
-                      className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 max-w-xs truncate"
-                      title={getDisplayAddress(log)}
+                      className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium whitespace-nowrap"
                     >
-                      {getDisplayAddress(log)}
-                    </td>
-                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium">
                       {log.contactNo}
                     </td>
-                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
-                      {log.nameOfOfw}
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium">
+                      {getTypeAcronym(log.type)}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium">
                       {log.jobsite}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
-                      {getTypeAcronym(log.type)}
-                    </td>
-                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
                       {log.position}
                     </td>
-                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
-                      {log.purpose}
-                    </td>
-                    <td className="px-2 py-2.5 text-xs text-center align-middle border-r border-gray-200">
-                      {log.survey}
-                    </td>
                     <td
-                      className="px-2 py-2.5 text-xs text-gray-700 text-center align-middle max-w-[140px] truncate"
-                      title={getRecorderLabel(log.created_by, recorderNameById)}
+                      className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 max-w-xs truncate"
+                      title={getDisplayAddress(log)}
                     >
-                      {getRecorderLabel(log.created_by, recorderNameById)}
+                      {getDisplayAddress(log)}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs text-center align-middle">
+                      {log.survey}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={14}
+                    colSpan={13}
                     className="px-5 py-16 text-center text-gray-500 "
                   >
                     <div className="flex flex-col items-center justify-center">
@@ -1146,6 +1182,85 @@ export default function AdminClientDataTable({
                       defaultValue={modalState.data?.clientName || ""}
                       className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
                     />
+                  </div>
+                  {/* client type + conditional detail */}
+                  <div className="col-span-2 flex flex-col gap-1">
+                    <label
+                      htmlFor="client_type"
+                      className="text-gray-500 text-sm font-medium"
+                    >
+                      CLIENT TYPE
+                    </label>
+                    <select
+                      name="client_type"
+                      id="client_type"
+                      required
+                      value={editClientType}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setEditClientType(next);
+                        if (next === "APPLICANT") setEditClientTypeDetail("");
+                      }}
+                      className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+                    >
+                      <option value="APPLICANT">APPLICANT</option>
+                      <option value="NEXT OF KIN">NEXT OF KIN</option>
+                      <option value="OTHERS">OTHERS</option>
+                    </select>
+
+                    {editClientType === "NEXT OF KIN" && (
+                      <div className="flex flex-col gap-1">
+                        <label
+                          htmlFor="client_type_detail"
+                          className="text-gray-500 text-sm font-medium"
+                        >
+                          NEXT OF KIN (RELATION)
+                        </label>
+                        <select
+                          name="client_type_detail"
+                          id="client_type_detail"
+                          required
+                          value={editClientTypeDetail}
+                          onChange={(e) =>
+                            setEditClientTypeDetail(e.target.value)
+                          }
+                          className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+                        >
+                          <option value="" disabled>
+                            Select relation
+                          </option>
+                          <option value="MOTHER">MOTHER</option>
+                          <option value="FATHER">FATHER</option>
+                          <option value="SPOUSE">SPOUSE</option>
+                          <option value="CHILDREN">CHILDREN</option>
+                          <option value="SIBLING">SIBLING</option>
+                          <option value="GUARDIAN">GUARDIAN</option>
+                          <option value="OTHER">OTHER</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {editClientType === "OTHERS" && (
+                      <div className="flex flex-col gap-1">
+                        <label
+                          htmlFor="client_type_detail"
+                          className="text-gray-500 text-sm font-medium"
+                        >
+                          OTHERS (DETAIL)
+                        </label>
+                        <input
+                          type="text"
+                          name="client_type_detail"
+                          id="client_type_detail"
+                          required
+                          value={editClientTypeDetail}
+                          onChange={(e) =>
+                            setEditClientTypeDetail(e.target.value)
+                          }
+                          className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
+                        />
+                      </div>
+                    )}
                   </div>
                   {/* name of ofw */}
                   <div className="col-span-2 flex flex-col gap-1">

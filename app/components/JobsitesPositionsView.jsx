@@ -7,6 +7,8 @@ import {
   addJobsiteName,
   addPositionName,
 } from "../actions/jobsitesPositionsActions";
+import { useToaster } from "../hooks/useToaster";
+import Toaster from "./Toaster";
 
 const ADMIN_PROVINCES = [
   "MIMAROPA REGION",
@@ -149,9 +151,9 @@ export default function JobsitesPositionsView({
   const userScopeOptions = useMemo(() => {
     const role = String(userRole || "").trim();
     if (!role) {
-      return ["ALL CLIENTS", "OTHER PROVINCE", "OUTSIDE MIMAROPA"];
+      return ["ALL CLIENTS", "OTHER PROVINCE", "OTHER REGIONS"];
     }
-    return ["ALL CLIENTS", role, "OTHER PROVINCE", "OUTSIDE MIMAROPA"];
+    return ["ALL CLIENTS", role, "OTHER PROVINCE", "OTHER REGIONS"];
   }, [userRole]);
 
   const [selectedProvince, setSelectedProvince] = useState(ADMIN_PROVINCES[0]);
@@ -169,19 +171,12 @@ export default function JobsitesPositionsView({
   const [toggleAddPosition, setToggleAddPosition] = useState(false);
   const [addJobsiteStatus, setAddJobsiteStatus] = useState("idle");
   const [addPositionStatus, setAddPositionStatus] = useState("idle");
-  const [addJobsiteError, setAddJobsiteError] = useState("");
-  const [addPositionError, setAddPositionError] = useState("");
+  
+  // Toaster system
+  const { toasts, showSuccess, showError, removeToast } = useToaster();
 
   useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === "visible") router.refresh();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    const interval = setInterval(() => router.refresh(), 60000);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(interval);
-    };
+    // No auto-refresh: manual refresh buttons handle updates.
   }, [router]);
 
   const scopedLogs = useMemo(() => {
@@ -285,36 +280,60 @@ export default function JobsitesPositionsView({
 
   async function submitAddJobsite(e) {
     e.preventDefault();
-    setAddJobsiteError("");
     setAddJobsiteStatus("submitting");
-    const fd = new FormData(e.target);
+    let fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    
+    // Convert jobsite name to uppercase
+    if (data.jobsite && typeof data.jobsite === "string") {
+      data.jobsite = data.jobsite.toUpperCase();
+      // Create new FormData with uppercase value
+      const newFd = new FormData();
+      Object.keys(data).forEach(key => {
+        newFd.append(key, data[key]);
+      });
+      fd = newFd;
+    }
+    
     const result = await addJobsiteName(fd);
     if (!result.success) {
-      setAddJobsiteError(result.error || "Failed to add jobsite");
+      showError(result.error || "Failed to add jobsite");
       setAddJobsiteStatus("idle");
       return;
     }
+    showSuccess("Jobsite added successfully!");
     setAddJobsiteStatus("idle");
     setToggleAddJobsite(false);
     e.target.reset();
-    router.refresh();
   }
 
   async function submitAddPosition(e) {
     e.preventDefault();
-    setAddPositionError("");
     setAddPositionStatus("submitting");
-    const fd = new FormData(e.target);
+    let fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    
+    // Convert position name to uppercase
+    if (data.position && typeof data.position === "string") {
+      data.position = data.position.toUpperCase();
+      // Create new FormData with uppercase value
+      const newFd = new FormData();
+      Object.keys(data).forEach(key => {
+        newFd.append(key, data[key]);
+      });
+      fd = newFd;
+    }
+    
     const result = await addPositionName(fd);
     if (!result.success) {
-      setAddPositionError(result.error || "Failed to add position");
+      showError(result.error || "Failed to add position");
       setAddPositionStatus("idle");
       return;
     }
+    showSuccess("Position added successfully!");
     setAddPositionStatus("idle");
     setToggleAddPosition(false);
     e.target.reset();
-    router.refresh();
   }
 
   return (
@@ -408,7 +427,6 @@ export default function JobsitesPositionsView({
             type="button"
             onClick={() => {
               setToggleAddJobsite(true);
-              setAddJobsiteError("");
             }}
             className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-150 cursor-pointer flex items-center gap-2"
           >
@@ -419,7 +437,6 @@ export default function JobsitesPositionsView({
             type="button"
             onClick={() => {
               setToggleAddPosition(true);
-              setAddPositionError("");
             }}
             className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-150 cursor-pointer flex items-center gap-2"
           >
@@ -457,9 +474,9 @@ export default function JobsitesPositionsView({
           </div>
           <div className="flex flex-col items-center gap-1">
             <span className="text-xs text-gray-500 font-medium">
-              TOP JOBSITE
+              MOST COMMON JOBSITE
             </span>
-            <h1 className="font-bold truncate max-w-[200px] text-center">
+            <h1 className="font-bold truncate max-w-50 text-center">
               {topJobsite}
             </h1>
           </div>
@@ -473,9 +490,9 @@ export default function JobsitesPositionsView({
           </div>
           <div className="flex flex-col items-center gap-1">
             <span className="text-xs text-gray-500 font-medium">
-              TOP POSITION
+              MOST COMMON POSITION
             </span>
-            <h1 className="font-bold truncate max-w-[200px] text-center">
+            <h1 className="font-bold truncate max-w-50 text-center">
               {topPosition}
             </h1>
           </div>
@@ -485,6 +502,13 @@ export default function JobsitesPositionsView({
       <div className="flex flex-col gap-2 bg-white p-4 rounded-2xl border border-gray-300">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.refresh()}
+              className="px-4 py-2 text-sm rounded-lg flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+            >
+              Refresh Table
+            </button>
             <input
               type="text"
               value={searchQuery}
@@ -704,9 +728,6 @@ export default function JobsitesPositionsView({
                   Do not use acronym.
                 </span>
               </div>
-              {addJobsiteError ? (
-                <p className="text-sm text-red-600">{addJobsiteError}</p>
-              ) : null}
               <div className="flex items-center justify-center">
                 <button
                   type="submit"
@@ -755,9 +776,6 @@ export default function JobsitesPositionsView({
                   Do not use acronym.
                 </span>
               </div>
-              {addPositionError ? (
-                <p className="text-sm text-red-600">{addPositionError}</p>
-              ) : null}
               <div className="flex items-center justify-center">
                 <button
                   type="submit"
@@ -773,6 +791,9 @@ export default function JobsitesPositionsView({
           </div>
         </div>
       )}
+
+      {/* Toaster Component */}
+      <Toaster toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

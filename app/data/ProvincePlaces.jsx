@@ -30,6 +30,7 @@ export const ProvincePlaces = [
       "PALUAN",
       "RIZAL",
       "SABLAYAN",
+      "SAN JOSE",
       "SANTA CRUZ",
     ],
   },

@@ -23,14 +23,25 @@ export async function proxy(req) {
 
   // If the user is authenticated, check role for route protection
   if (user && !authError) {
-    // Fetch profile role
+    // Fetch profile role + status for route protection
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role,status")
       .eq("id", user.id)
       .single();
 
     const role = profile?.role;
+    const status = profile?.status;
+
+    // Deactivated users:
+    // Do NOT hard-redirect here, so the logged-in user can still see the
+    // "account deactivated" modal and be logged out in ~5 seconds.
+    // `AutoLogout`/account watcher handles the sign-out UX.
+    const isDeactivated =
+      status && String(status).trim().toUpperCase() === "DEACTIVATED";
+    if (isDeactivated) {
+      return res;
+    }
 
     // Prevent logged-in users from staying on the login page
     if (pathname === "/") {

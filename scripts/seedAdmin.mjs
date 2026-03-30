@@ -49,7 +49,7 @@ async function seedAdmin() {
   // 3. Insert profile with role 'admin'
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
-    .insert({ id: user.user.id, role: 'admin' });
+    .insert({ id: user.user.id, role: 'ADMIN' });
 
   if (profileError) {
     console.error('Error creating profile:', profileError);

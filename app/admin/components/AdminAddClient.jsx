@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, CheckCircle, X } from "lucide-react";
 import Link from "next/link";
 import { addClientLog } from "../../actions/clientLogsActions";
 import { ProvincePlaces } from "../../data/ProvincePlaces";
+import { createClient } from "../../lib/supabaseClient";
+import { useValidation, ValidatedInput, showToasterError } from "../../hooks/useValidation";
+import { useToaster } from "../../hooks/useToaster";
+import Toaster from "../../components/Toaster";
 
 const PROVINCE = [
   "ORIENTAL MINDORO",
@@ -38,12 +42,62 @@ const SEX = ["M", "F"];
 const SURVEY = ["GOOD", "BAD"];
 
 export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
-  const allJobsites = [...dbJobsites].sort();
-  const allPositions = [...dbPositions].sort();
-  const [status, setStatus] = useState("idle"); // 'idle' | 'submitting' | 'success' | 'error'
-  const [errorMessage, setErrorMessage] = useState("");
+  const supabase = useMemo(() => createClient(), []);
+  const validation = useValidation();
+
+  const normalizeNames = (names) =>
+    Array.from(
+      new Set(
+        (names || [])
+          .map((n) =>
+            String(n || "")
+              .trim()
+              .toUpperCase(),
+          )
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+
+  const [allJobsites, setAllJobsites] = useState(() =>
+    normalizeNames(dbJobsites),
+  );
+  const [allPositions, setAllPositions] = useState(() =>
+    normalizeNames(dbPositions),
+  );
+
+  useEffect(() => {
+    setAllJobsites(normalizeNames(dbJobsites));
+    setAllPositions(normalizeNames(dbPositions));
+  }, [dbJobsites, dbPositions]);
+
+  // Realtime-ish catalog refresh so newly added jobsite/position appear quickly.
+  useEffect(() => {
+    const fetchCatalogs = async () => {
+      const [
+        { data: jobsitesData, error: jobsitesError },
+        { data: positionsData, error: positionsError },
+      ] = await Promise.all([
+        supabase.from("jobsites").select("name"),
+        supabase.from("positions").select("name"),
+      ]);
+
+      if (jobsitesError || positionsError) return;
+
+      setAllJobsites(normalizeNames(jobsitesData?.map((r) => r.name) || []));
+      setAllPositions(normalizeNames(positionsData?.map((r) => r.name) || []));
+    };
+
+    fetchCatalogs();
+  }, [supabase]);
+
+  const [status, setStatus] = useState("idle"); // 'idle' | 'submitting'
   const [clientName, setClientName] = useState("");
   const [nameOfOfw, setNameOfOfw] = useState("");
+  const [clientType, setClientType] = useState("APPLICANT");
+  
+  // Toaster system
+  const { toasts, showSuccess, showError, removeToast } = useToaster();
+  const [clientTypeDetail, setClientTypeDetail] = useState("");
   const [activeProvince, setActiveProvince] = useState("");
   const [isOutsideMimaropa, setIsOutsideMimaropa] = useState(false);
   const [isAddingJobsite, setIsAddingJobsite] = useState(false);
@@ -52,7 +106,7 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
@@ -61,6 +115,7 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
       "date",
       "clientName",
       "nameOfOfw",
+      "client_type",
       "age",
       "sex",
       "jobsite",
@@ -71,14 +126,29 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
       "purpose",
       "survey",
     ];
-    const isMissingData = requiredFields.some(
-      (field) => !data[field] || data[field].trim() === "",
-    );
 
-    if (isMissingData) {
-      setErrorMessage("Please fill-up all fields");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 3000);
+    const normalizedClientType = String(data.client_type || "")
+      .toUpperCase()
+      .trim();
+    if (["NEXT OF KIN", "OTHERS"].includes(normalizedClientType)) {
+      requiredFields.push("client_type_detail");
+    }
+    
+    // Validate each field
+    let hasValidationErrors = false;
+    for (const field of requiredFields) {
+      const value = data[field];
+      const isValid = validation.validateField(field, value, { required: true });
+      if (!isValid) {
+        hasValidationErrors = true;
+      }
+    }
+    
+    // Mark all required fields as touched and validate form
+    const isFormValid = validation.validateForm(data, requiredFields);
+    
+    if (hasValidationErrors || !isFormValid) {
+      showError("Please fill up all required fields correctly");
       return;
     }
 
@@ -89,28 +159,25 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
     const isAcronym = (word, allowedList) => {
       const upper = word.toUpperCase().trim();
       if (allowedList.includes(upper)) return false; // Allowed because it's predefined
-      if (upper.length <= 4 && !upper.includes(" ")) return true;
+      if (upper.length <= 3 && !upper.includes(" ")) return true;
       if (upper.includes(".")) return true;
       return false;
     };
 
     if (isAcronym(data.jobsite, allJobsites)) {
-      setErrorMessage("Jobsite must be a complete word, not an acronym.");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError("Jobsite must be a complete word, not an acronym.");
       return;
     }
 
     if (isAcronym(data.position, allPositions)) {
-      setErrorMessage("Position must be a complete word, not an acronym.");
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
+      showError("Position must be a complete word, not an acronym.");
       return;
     }
 
-    // Capitalize all data properties before submitting to Database
+    // Convert all data properties to uppercase before submitting to Database (excluding email and password fields)
+    const fieldsToExclude = ['email', 'password', 'admin_password', 'admin_password_confirm', 'date'];
     for (const key in data) {
-      if (typeof data[key] === "string" && key !== "date") {
+      if (typeof data[key] === "string" && !fieldsToExclude.includes(key)) {
         data[key] = data[key].toUpperCase();
       }
     }
@@ -122,15 +189,35 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
       const result = await addClientLog(data);
 
       if (!result.success) {
-        setErrorMessage(
-          result.error || "Failed to add client log! Please try again later.",
-        );
-        setStatus("error");
-        setTimeout(() => setStatus("idle"), 6000);
+        showError(result.error || "Failed to add client log! Please try again later.");
         return;
       }
 
-      setStatus("success");
+      showSuccess("Client log added successfully!");
+
+      const addedJobsite = String(data.jobsite || "")
+        .trim()
+        .toUpperCase();
+      const addedPosition = String(data.position || "")
+        .trim()
+        .toUpperCase();
+
+      // Immediately reflect any newly typed jobsite/position in this form's dropdowns.
+      if (addedJobsite) {
+        setAllJobsites((prev) =>
+          prev.includes(addedJobsite)
+            ? prev
+            : normalizeNames([...prev, addedJobsite]),
+        );
+      }
+      if (addedPosition) {
+        setAllPositions((prev) =>
+          prev.includes(addedPosition)
+            ? prev
+            : normalizeNames([...prev, addedPosition]),
+        );
+      }
+
       const submittedDate = data.date; // capture the date before clearing
       const submittedProvince = data.province; // capture province explicitly
 
@@ -140,16 +227,14 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
 
       setClientName("");
       setNameOfOfw("");
+      setClientType("APPLICANT");
+      setClientTypeDetail("");
 
       // Hide success message automatically after 3 seconds
       setTimeout(() => setStatus("idle"), 3000);
     } catch (error) {
       console.error(error);
-      setErrorMessage("Failed to add client log! Please try again later.");
-      setStatus("error");
-
-      // Hide error message automatically after 3 seconds
-      setTimeout(() => setStatus("idle"), 3000);
+      showError("Failed to add client log! Please try again later.");
     }
   };
 
@@ -220,32 +305,6 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
                 className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
               />
             </div>
-            
-            {/* purpose */}
-            <div className="col-span-2 flex flex-col gap-1">
-              <label
-                htmlFor="purpose"
-                className="text-gray-500 text-sm font-medium"
-              >
-                PURPOSE
-              </label>
-              <select
-                name="purpose"
-                id="purpose"
-                required
-                defaultValue=""
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
-              >
-                <option value="" disabled>
-                  Select purpose
-                </option>
-                {PURPOSE.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
             {/* client name */}
             <div className="col-span-2 flex flex-col gap-1">
               <label htmlFor="" className="text-gray-500 text-sm font-medium">
@@ -261,6 +320,85 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
                 placeholder="Enter client name"
                 className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
               />
+            </div>
+
+            {/* client type */}
+            <div className="col-span-1 flex flex-col gap-1">
+              <label
+                htmlFor="client_type"
+                className="text-gray-500 text-sm font-medium"
+              >
+                CLIENT TYPE
+              </label>
+              <select
+                name="client_type"
+                id="client_type"
+                required
+                value={clientType}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setClientType(next);
+                  if (next !== "NEXT OF KIN" && next !== "OTHERS") {
+                    setClientTypeDetail("");
+                  }
+                }}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+              >
+                <option value="APPLICANT">APPLICANT</option>
+                <option value="NEXT OF KIN">NEXT OF KIN</option>
+                <option value="OTHERS">OTHERS</option>
+              </select>
+
+              {clientType === "NEXT OF KIN" && (
+                <div className="flex flex-col gap-1 mt-1">
+                  <label
+                    htmlFor=""
+                    className="text-xs text-gray-500 font-medium"
+                  >
+                    RELATIONSHIP
+                  </label>
+                  <select
+                    name="client_type_detail"
+                    id="client_type_detail"
+                    required
+                    value={clientTypeDetail}
+                    onChange={(e) => setClientTypeDetail(e.target.value)}
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+                  >
+                    <option value="" disabled>
+                      Select relation
+                    </option>
+                    <option value="MOTHER">MOTHER</option>
+                    <option value="FATHER">FATHER</option>
+                    <option value="SPOUSE">SPOUSE</option>
+                    <option value="CHILDREN">CHILDREN</option>
+                    <option value="SIBLING">SIBLING</option>
+                    <option value="GUARDIAN">GUARDIAN</option>
+                    <option value="OTHER">OTHER</option>
+                  </select>
+                </div>
+              )}
+
+              {clientType === "OTHERS" && (
+                <div className="flex flex-col gap-1 mt-1">
+                  <label
+                    htmlFor=""
+                    className="text-xs text-gray-500 font-medium"
+                  >
+                    SPECIFY CLIENT TYPE
+                  </label>
+                  <input
+                    type="text"
+                    name="client_type_detail"
+                    id="client_type_detail"
+                    required
+                    value={clientTypeDetail}
+                    onChange={(e) => setClientTypeDetail(e.target.value)}
+                    placeholder="Enter other client type"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
+                  />
+                </div>
+              )}
             </div>
             {/* name of ofw */}
             <div className="col-span-2 flex flex-col gap-1">
@@ -288,6 +426,46 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
                   </button>
                 </div>
               )}
+            </div>
+            {/* contact no */}
+            <div className="col-span-1 flex flex-col gap-1">
+              <label htmlFor="" className="text-gray-500 text-sm font-medium">
+                CONTACT NO
+              </label>
+              <input
+                type="text"
+                name="contactNo"
+                id="contactNo"
+                placeholder="Enter contact no."
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
+              />
+              <span className="text-xs text-gray-500">Optional</span>
+            </div>
+
+            {/* purpose */}
+            <div className="col-span-2 flex flex-col gap-1">
+              <label
+                htmlFor="purpose"
+                className="text-gray-500 text-sm font-medium"
+              >
+                PURPOSE
+              </label>
+              <select
+                name="purpose"
+                id="purpose"
+                required
+                defaultValue=""
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150 bg-white cursor-pointer"
+              >
+                <option value="" disabled>
+                  Select purpose
+                </option>
+                {PURPOSE.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* age */}
@@ -329,20 +507,7 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
                 ))}
               </select>
             </div>
-            {/* contact no */}
-            <div className="col-span-1 flex flex-col gap-1">
-              <label htmlFor="" className="text-gray-500 text-sm font-medium">
-                CONTACT NO
-              </label>
-              <input
-                type="text"
-                name="contactNo"
-                id="contactNo"
-                placeholder="Enter contact no."
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 transition-colors duration-150"
-              />
-              <span className="text-xs text-gray-500">Optional</span>
-            </div>
+
             {/* type */}
             <div className="col-span-1 flex flex-col gap-1">
               <label htmlFor="" className="text-gray-500 text-sm font-medium">
@@ -417,7 +582,7 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
               )}
             </div>
             {/* position */}
-            <div className="col-span-2 flex flex-col gap-1">
+            <div className="col-span-1 flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <label htmlFor="" className="text-gray-500 text-sm font-medium">
                   POSITION
@@ -464,7 +629,7 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
                 </select>
               )}
             </div>
-            
+
             {/* province */}
             <div className="col-span-3 flex flex-col gap-1">
               <label htmlFor="" className="text-gray-500 text-sm font-medium">
@@ -551,7 +716,7 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
                 </select>
               )}
             </div>
-            
+
             {/* survey */}
             <div className="col-span-1 flex flex-col gap-1">
               <label
@@ -591,28 +756,8 @@ export default function AdminAddClient({ dbJobsites = [], dbPositions = [] }) {
         </fieldset>
       </form>
 
-      {/* success message */}
-      <div
-        className={`fixed top-4 right-4 p-4 z-50 bg-green-500 text-white rounded-2xl flex items-center gap-2 shadow-lg transition-all duration-300 transform ${
-          status === "success"
-            ? "translate-y-0 opacity-100"
-            : "-translate-y-10 opacity-0 pointer-events-none"
-        }`}
-      >
-        <CheckCircle strokeWidth={1.5} className="w-5 h-5" />
-        Client log added successfully!
-      </div>
-      {/* error message */}
-      <div
-        className={`fixed top-4 right-4 p-4 z-50 bg-red-500 text-white rounded-2xl flex items-center gap-2 shadow-lg transition-all duration-300 transform ${
-          status === "error"
-            ? "translate-y-0 opacity-100"
-            : "-translate-y-10 opacity-0 pointer-events-none"
-        }`}
-      >
-        <X strokeWidth={1.5} className="w-5 h-5" />
-        {errorMessage}
-      </div>
+      {/* Toaster Component */}
+      <Toaster toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

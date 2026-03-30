@@ -3,22 +3,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
 import AdminNavbar from "../components/AdminNavbar";
-import AdminClientsLogs from "../components/AdminClientsLogs";
+import AdminServices from "../components/AdminServices";
 import {
-  getAdminClientLogsCached,
-  getCatalogsCached,
   getProfilesNameMapCached,
 } from "../../lib/cachedReads";
+import { unstable_cache } from "next/cache";
 
-const PROVINCE_ASSIGNEE_ROLES = [
-  "ORIENTAL MINDORO",
-  "OCCIDENTAL MINDORO",
-  "MARINDUQUE",
-  "ROMBLON",
-  "PALAWAN",
-];
-
-export default async function AdminClientsLogsPage() {
+export default async function AdminServicesPage() {
   const supabase = await createServerSupabase();
   const {
     data: { user },
@@ -35,7 +26,13 @@ export default async function AdminClientsLogsPage() {
     .eq("id", user.id)
     .single();
 
-  console.log("AdminClientsLogsPage Check:", {
+  // Initialize Admin Client (service role) to bypass any RLS on profiles lookup.
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+
+  console.log("AdminServicesPage Check:", {
     user_id: user?.id,
     profile,
     error,
@@ -48,30 +45,24 @@ export default async function AdminClientsLogsPage() {
     return null; // Prevents Admin settings from erroneously rendering if redirect throws incorrectly
   }
 
-  const { data: clientLogs } = await supabase
-    .from("client_logs");
+  const getAdminServicesLogsCached = unstable_cache(
+    async () => {
+      const { data } = await supabaseAdmin
+        .from("client_logs")
+        .select("id,date,province,purpose,created_by")
+        .order("date", { ascending: false });
+      return data || [];
+    },
+    ["admin-services-logs-v1"],
+    { revalidate: 30, tags: ["client_logs"] },
+  );
 
-  const [allClientLogs, catalogs, profilesResult] = await Promise.all([
-    getAdminClientLogsCached(),
-    getCatalogsCached(),
+  const [initialLogs, profilesResult] = await Promise.all([
+    getAdminServicesLogsCached(),
     getProfilesNameMapCached(),
   ]);
 
-  const dbJobsites = catalogs.dbJobsites || [];
-  const dbPositions = catalogs.dbPositions || [];
-
   const recorderNameById = profilesResult.recorderNameById || {};
-
-  const assignedUsers = (profilesResult.profiles || [])
-    .filter(
-      (p) =>
-        PROVINCE_ASSIGNEE_ROLES.includes(p.role) || p.role === "ADMIN",
-    )
-    .map((p) => ({
-      id: p.id,
-      name: (p.name && String(p.name).trim()) || "Unknown",
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <main className="flex h-dvh min-h-0 overflow-hidden bg-gray-50">
@@ -79,12 +70,9 @@ export default async function AdminClientsLogsPage() {
         <AdminNavbar />
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        <AdminClientsLogs
-          initialData={allClientLogs || []}
-          dbJobsites={dbJobsites}
-          dbPositions={dbPositions}
+        <AdminServices
+          initialLogs={initialLogs || []}
           recorderNameById={recorderNameById}
-          assignedUsers={assignedUsers}
         />
       </div>
     </main>

@@ -1,8 +1,6 @@
 import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
 import AdminNavbar from "../components/AdminNavbar";
 import AdminAddClient from "../components/AdminAddClient";
 export default async function AdminAddClientPage() {

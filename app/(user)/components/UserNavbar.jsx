@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "../../lib/supabaseClient"; // adjust path if needed
+import { setPresenceOffline } from "../../actions/presenceActions";
 import {
   LayoutDashboard,
   History,
@@ -12,6 +13,7 @@ import {
   LogOut,
   BookOpenText,
   Building2,
+  Handshake,
 } from "lucide-react";
 
 // Easily add, modify, or remove sections and items here
@@ -26,6 +28,7 @@ const MENU_SECTIONS = [
         href: "/jobsites-positions",
         icon: Building2,
       },
+      { name: "Services", href: "/services", icon: Handshake },
     ],
   },
   {
@@ -43,9 +46,14 @@ export default function UserNavbar() {
   const supabase = createClient();
 
   const handleLogout = async () => {
+    try {
+      await setPresenceOffline();
+    } catch {
+      // ignore
+    }
     await supabase.auth.signOut();
-    // Use window.location.href instead of router.replace to completely clear Next.js client router cache
-    window.location.href = "/";
+    // Replace instead of href to prevent browser back from showing a stale protected page.
+    window.location.replace("/");
   };
 
   return (

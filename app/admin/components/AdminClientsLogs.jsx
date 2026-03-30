@@ -12,7 +12,7 @@ const PROVINCES = [
   "MARINDUQUE",
   "ROMBLON",
   "PALAWAN",
-  "OUTSIDE MIMAROPA",
+  "OTHER REGIONS",
 ];
 
 const MIMAROPA_PROVINCES = [
@@ -139,6 +139,7 @@ export default function AdminClientsLogs({
             </div>
           )}
         </div>
+        
         <Link
           href="/admin/add-client"
           className="rounded-lg px-4 py-2 bg-blue-500 hover:bg-blue-600 transition-colors duration-150 cursor-pointer text-white flex items-center gap-2"
@@ -147,6 +148,7 @@ export default function AdminClientsLogs({
           Add Client Log
         </Link>
       </div>
+
       {/* main */}
       <div className="flex flex-1 gap-6">
         <div className="flex flex-col flex-1 gap-6">

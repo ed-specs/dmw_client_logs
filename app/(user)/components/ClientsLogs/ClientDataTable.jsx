@@ -19,9 +19,59 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { ProvincePlaces } from "../../../data/ProvincePlaces";
+import { revalidateClientLogs } from "../../../actions/cacheActions";
 
 const SURVEY = ["GOOD", "BAD"];
 const TYPE_OPTIONS = ["LANDBASED", "SEABASED"];
+
+const PURPOSE_OPTIONS = [
+  "OEC",
+  "OEC-EXEMPTION",
+  "PEOS",
+  "INFOSHEET",
+  "DIRECT HIRE",
+  "G2G",
+  "AKSYON",
+  "SPIMS",
+  "LPOR",
+  "BPBH",
+  "BALIK PINAY-BALIK HANAPBUHAY",
+  "LDAP",
+  "CONCILIATION-MEDIATION",
+  "LEGAL ADVISE",
+  "END OF SERVICE BENEFIT CLAIMS",
+];
+
+const REINTEGRATION_PURPOSES = new Set([
+  "PEOS",
+  "AKSYON",
+  "SPIMS",
+  "LPOR",
+  "BPBH",
+  "BALIK PINAY-BALIK HANAPBUHAY",
+]);
+const LEGAL_ASSISTANCE_PURPOSES = new Set([
+  "LDAP",
+  "CONCILIATION-MEDIATION",
+  "LEGAL ADVISE",
+  "END OF SERVICE BENEFIT CLAIMS",
+]);
+
+const SERVICE_TYPE_OPTIONS = [
+  "PROCESSING SERVICES",
+  "REINTEGRATION SERVICES",
+  "LEGAL ASSISTANCE SERVICES",
+];
+
+const normalizePurpose = (purpose = "") =>
+  String(purpose || "").toUpperCase().trim();
+
+const getServiceTypeOptionForPurpose = (purpose = "") => {
+  const u = normalizePurpose(purpose);
+  if (LEGAL_ASSISTANCE_PURPOSES.has(u)) return "LEGAL ASSISTANCE SERVICES";
+  if (REINTEGRATION_PURPOSES.has(u)) return "REINTEGRATION SERVICES";
+  return "PROCESSING SERVICES";
+};
 
 const normalizeType = (type = "") => {
   const upper = String(type).toUpperCase().trim();
@@ -43,8 +93,8 @@ const INITIAL_FILTER_SELECTIONS = {
   type: [],
   position: [],
   purpose: [],
+  service_type: [],
   address: [],
-  survey: [],
 };
 
 const buildTypeSearchBlob = (rawType) => {
@@ -98,23 +148,15 @@ const FILTER_OPTIONS = [
     placeholder: "Select Purpose",
     icon: FileText,
     colClass: "col-span-2",
-    options: [
-      "OEC",
-      "OEC-EXEMPTION",
-      "FINANCIAL ASSISTANCE",
-      "G2G",
-      "PEOS",
-      "INFOSHEET",
-      "LEGAL ASSISTANCE",
-    ],
+    options: PURPOSE_OPTIONS,
   },
   {
-    id: "survey",
-    label: "Survey",
-    placeholder: "Select Survey",
+    id: "service_type",
+    label: "Service Type",
+    placeholder: "Select Service Type",
     icon: FileText,
     colClass: "col-span-2",
-    options: SURVEY,
+    options: SERVICE_TYPE_OPTIONS,
   },
   {
     id: "address",
@@ -159,23 +201,23 @@ export default function ClientDataTable({
     return client.address;
   };
 
+  const getClientTypeDisplay = (log) => {
+    const type = String(log.client_type || "").toUpperCase().trim();
+    const detail = String(log.client_type_detail || "").trim();
+
+    if (!type) return "APPLICANT";
+    if (detail && (type === "NEXT OF KIN" || type === "OTHERS")) {
+      return `${type}: ${detail}`;
+    }
+    return type;
+  };
+
   useEffect(() => {
     setLocalData(data);
   }, [data]);
 
   useEffect(() => {
-    // Tab visible again (e.g. returned from another tab). Avoid window "focus":
-    // it fires often and causes router.refresh() + full tree re-fetch, which feels
-    // like constant re-rendering.
-    const onVisible = () => {
-      if (document.visibilityState === "visible") router.refresh();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    const interval = setInterval(() => router.refresh(), 60000);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(interval);
-    };
+    // No auto-refresh: refresh should be manual to avoid DB load.
   }, [router]);
 
   const openEditModal = (log) => setModalState({ isOpen: true, data: log });
@@ -296,6 +338,16 @@ export default function ClientDataTable({
       return { ...opt, options: [...dbJobsites].sort() };
     if (opt.id === "position")
       return { ...opt, options: [...dbPositions].sort() };
+    if (opt.id === "purpose") {
+      const selectedServiceTypes = selectedFilters.service_type || [];
+      if (!selectedServiceTypes.length) {
+        return { ...opt, options: PURPOSE_OPTIONS };
+      }
+      const options = PURPOSE_OPTIONS.filter((p) =>
+        selectedServiceTypes.includes(getServiceTypeOptionForPurpose(p)),
+      );
+      return { ...opt, options };
+    }
     if (opt.id === "address") {
       let options = [];
       if (selectedProvince === "ALL CLIENTS") {
@@ -371,6 +423,8 @@ export default function ClientDataTable({
       !q ||
       [
         log.clientName,
+        log.client_type,
+        log.client_type_detail,
         log.nameOfOfw,
         log.address,
         getDisplayAddress(log),
@@ -408,14 +462,17 @@ export default function ClientDataTable({
       selectedFilters.purpose?.length === 0 || !selectedFilters.purpose
         ? true
         : selectedFilters.purpose.includes(log.purpose);
+    const matchesServiceType =
+      selectedFilters.service_type?.length === 0 ||
+      !selectedFilters.service_type
+        ? true
+        : selectedFilters.service_type.includes(
+            getServiceTypeOptionForPurpose(log.purpose),
+          );
     const matchesAddress =
       selectedFilters.address?.length === 0 || !selectedFilters.address
         ? true
         : selectedFilters.address.includes(getDisplayAddress(log));
-    const matchesSurvey =
-      selectedFilters.survey?.length === 0 || !selectedFilters.survey
-        ? true
-        : selectedFilters.survey.includes(log.survey);
 
     return (
       matchesRegion &&
@@ -425,8 +482,9 @@ export default function ClientDataTable({
       matchesType &&
       matchesPosition &&
       matchesPurpose &&
+      matchesServiceType &&
       matchesAddress &&
-      matchesSurvey
+      true
     );
   });
 
@@ -509,6 +567,16 @@ export default function ClientDataTable({
           <div className="flex items-center gap-4">
             {/* search bar */}
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await revalidateClientLogs();
+                  router.refresh();
+                }}
+                className="px-4 py-2 text-sm rounded-lg flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+              >
+                Refresh
+              </button>
               <input
                 type="text"
                 name="search"
@@ -866,10 +934,16 @@ export default function ClientDataTable({
                   NO.
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  DATE
+                  CLIENT NAME
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  CLIENT NAME
+                  CLIENT TYPE
+                </th>
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
+                  OFW NAME
+                </th>
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
+                  PURPOSE
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200 text-center">
                   AGE
@@ -878,25 +952,19 @@ export default function ClientDataTable({
                   SEX
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  ADDRESS
-                </th>
-                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   CONTACT NO.
-                </th>
-                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  NAME OF OFW
-                </th>
-                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  JOBSITE
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   TYPE
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
+                  JOBSITE
+                </th>
+                <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
                   POSITION
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider border-r border-gray-200">
-                  PURPOSE
+                  ADDRESS
                 </th>
                 <th className="px-2 py-2.5 text-xs font-semibold tracking-wider text-center">
                   SURVEY
@@ -914,17 +982,17 @@ export default function ClientDataTable({
                     <td className="px-2 py-2.5 text-xs text-gray-500 border-r border-gray-200 text-center">
                       {startIndex + index + 1}
                     </td>
-                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium whitespace-nowrap">
-                      {log.date
-                        ? new Date(log.date).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })
-                        : "N/A"}
-                    </td>
                     <td className="px-2 py-2.5 text-xs text-gray-900 border-r border-gray-200 font-semibold whitespace-nowrap">
                       {log.clientName}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 text-center whitespace-nowrap">
+                      {getClientTypeDisplay(log)}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
+                      {log.nameOfOfw}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
+                      {log.purpose}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 text-center">
                       {log.age}
@@ -932,29 +1000,23 @@ export default function ClientDataTable({
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 text-center">
                       {log.sex}
                     </td>
-                    <td
-                      className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 max-w-xs truncate"
-                      title={getDisplayAddress(log)}
-                    >
-                      {getDisplayAddress(log)}
-                    </td>
-                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium">
+                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium whitespace-nowrap">
                       {log.contactNo}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
-                      {log.nameOfOfw}
+                      {getTypeAcronym(log.type)}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 font-medium">
                       {log.jobsite}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
-                      {getTypeAcronym(log.type)}
-                    </td>
-                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
                       {log.position}
                     </td>
-                    <td className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200">
-                      {log.purpose}
+                    <td
+                      className="px-2 py-2.5 text-xs text-gray-700 border-r border-gray-200 max-w-xs truncate"
+                      title={getDisplayAddress(log)}
+                    >
+                      {getDisplayAddress(log)}
                     </td>
                     <td className="px-2 py-2.5 text-xs text-center align-middle">
                       {log.survey}
@@ -964,7 +1026,7 @@ export default function ClientDataTable({
               ) : (
                 <tr>
                   <td
-                    colSpan="12"
+                    colSpan="13"
                     className="px-5 py-16 text-center text-gray-500 "
                   >
                     <div className="flex flex-col items-center justify-center">

@@ -2,8 +2,6 @@ import { createServerSupabase } from "../../lib/supabaseServer";
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-export const dynamic = "force-dynamic";
-
 import AdminNavbar from "../components/AdminNavbar";
 import AdminManageEmployees from "../components/AdminManageEmployees";
 

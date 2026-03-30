@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "../../lib/supabaseClient"; // adjust path if needed
+import { setPresenceOffline } from "../../actions/presenceActions";
 import {
   LayoutDashboard,
   BookOpenText,
@@ -11,6 +12,7 @@ import {
   IdCardLanyard,
   LogOut,
   Building2,
+  Handshake,
 } from "lucide-react";
 
 const MENU_SECTIONS = [
@@ -27,6 +29,11 @@ const MENU_SECTIONS = [
         name: "Jobsites & Positions",
         href: "/admin/jobsites-positions",
         icon: Building2,
+      },
+      {
+        name: "Services",
+        href: "/admin/services",
+        icon: Handshake,
       },
     ],
   },
@@ -53,9 +60,14 @@ export default function AdminNavbar() {
   const supabase = createClient();
 
   const handleLogout = async () => {
+    try {
+      await setPresenceOffline();
+    } catch {
+      // ignore
+    }
     await supabase.auth.signOut();
-    // Use window.location.href instead of router.replace to completely clear Next.js client router cache
-    window.location.href = "/";
+    // Replace instead of href to prevent browser back from showing a stale protected page.
+    window.location.replace("/");
   };
 
   return (
@@ -66,7 +78,7 @@ export default function AdminNavbar() {
         {/* DMW LOGO */}
             <div className="flex items-center gap-4 py-2">
               <Image src="/dmw_logo.png" alt="DMW Logo" width={50} height={50} />
-              <div className="hidden w-[180px] overflow-hidden group-hover:flex group-focus-within:flex">
+              <div className="hidden w-45 overflow-hidden group-hover:flex group-focus-within:flex">
                 <h1 className=" leading-tight font-bold">
                   DEPARTMENT OF MIGRANT WORKERS
                 </h1>
@@ -100,7 +112,7 @@ export default function AdminNavbar() {
                         }`}
                       >
                         <Icon strokeWidth={1.5} className="w-5 h-5 shrink-0" />
-                        <span className="w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:w-[200px] group-hover:opacity-100 group-focus-within:w-[200px] group-focus-within:opacity-100">
+                        <span className="w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:w-50 group-hover:opacity-100 group-focus-within:w-50 group-focus-within:opacity-100">
                           {item.name}
                         </span>
                       </Link>
@@ -121,7 +133,7 @@ export default function AdminNavbar() {
               className="hover:bg-red-500 text-red-500 hover:text-white w-full px-4 py-3 rounded-lg flex items-center justify-start gap-3 text-left transition-colors duration-150 cursor-pointer"
             >
               <LogOut strokeWidth={1.5} className="w-5 h-5 shrink-0" />
-              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[200px] group-hover:opacity-100 group-focus-within:max-w-[200px] group-focus-within:opacity-100">
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-50 group-hover:opacity-100 group-focus-within:max-w-50 group-focus-within:opacity-100">
                 Logout
               </span>
             </button>

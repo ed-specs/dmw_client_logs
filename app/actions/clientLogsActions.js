@@ -2,6 +2,7 @@
 
 import { createServerSupabase } from "../lib/supabaseServer";
 import { createClient } from "@supabase/supabase-js";
+import { revalidateTag } from "next/cache";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -45,14 +46,20 @@ export async function addClientLog(clientData) {
     // 3. Upsert Jobsite and Position natively capturing typed creations securely bypassing RLS
     if (clientData.jobsite) {
       await supabaseAdmin.from("jobsites").upsert(
-        { name: clientData.jobsite.toUpperCase().trim() },
-        { onConflict: "name" }
+        {
+          name: clientData.jobsite.toUpperCase().trim(),
+          created_by: user.id,
+        },
+        { onConflict: "name", ignoreDuplicates: true }
       );
     }
     if (clientData.position) {
       await supabaseAdmin.from("positions").upsert(
-        { name: clientData.position.toUpperCase().trim() },
-        { onConflict: "name" }
+        {
+          name: clientData.position.toUpperCase().trim(),
+          created_by: user.id,
+        },
+        { onConflict: "name", ignoreDuplicates: true }
       );
     }
 
@@ -70,6 +77,8 @@ export async function addClientLog(clientData) {
       return { success: false, error: insertError.message };
     }
 
+    revalidateTag("client_logs");
+    revalidateTag("catalogs");
     return { success: true };
   } catch (error) {
     console.error("Unexpected error in addClientLog:", error);
@@ -94,14 +103,20 @@ export async function updateClientLog(clientData, logId) {
     // 2. Upsert Jobsite and Position securely bypassing RLS
     if (clientData.jobsite) {
       await supabaseAdmin.from("jobsites").upsert(
-        { name: clientData.jobsite.toUpperCase().trim() },
-        { onConflict: "name" }
+        {
+          name: clientData.jobsite.toUpperCase().trim(),
+          created_by: user.id,
+        },
+        { onConflict: "name", ignoreDuplicates: true }
       );
     }
     if (clientData.position) {
       await supabaseAdmin.from("positions").upsert(
-        { name: clientData.position.toUpperCase().trim() },
-        { onConflict: "name" }
+        {
+          name: clientData.position.toUpperCase().trim(),
+          created_by: user.id,
+        },
+        { onConflict: "name", ignoreDuplicates: true }
       );
     }
 
@@ -121,6 +136,8 @@ export async function updateClientLog(clientData, logId) {
       return { success: false, error: updateError.message };
     }
 
+    revalidateTag("client_logs");
+    revalidateTag("catalogs");
     return { success: true };
   } catch (error) {
     console.error("Unexpected error in updateClientLog:", error);

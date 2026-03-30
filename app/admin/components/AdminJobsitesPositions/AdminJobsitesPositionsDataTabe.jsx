@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AdminJobsitePositionsDataTable() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -12,6 +14,13 @@ export default function AdminJobsitePositionsDataTable() {
         <div className="flex items-center justify-between">
           {/* search and filters */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.refresh()}
+              className="px-4 py-2 text-sm rounded-lg flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+            >
+              Refresh Table
+            </button>
             <input
               type="text"
               name="search"
@@ -45,6 +54,13 @@ export default function AdminJobsitePositionsDataTable() {
         <div className="flex items-center justify-between">
           {/* search and filters */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.refresh()}
+              className="px-4 py-2 text-sm rounded-lg flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+            >
+              Refresh Table
+            </button>
             <input
               type="text"
               name="search"
